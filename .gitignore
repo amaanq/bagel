@@ -1,0 +1,9 @@
+target/
+.direnv/
+result
+result-*
+*.db
+*.db-shm
+*.db-wal
+.nixos-test-history
+*.qcow2
