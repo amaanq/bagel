@@ -1,0 +1,56 @@
+PHP Fatal error: Uncaught Error: Call to undefined function shell_exec() in /var/www/html/index.php on line 47
+PHP Fatal error: Uncaught Error: Call to undefined function mysql_connect() in /var/www/html/includes/db.php on line 12
+Stack trace: #0 /var/www/html/functions.php(15): connect_db() #1 /var/www/html/admin/index.php(5): include('/var/www/html/f...') #2 {main}
+thrown in /var/www/html/index.php on line 27
+PHP Warning: include(config.php): failed to open stream: No such file or directory in /var/www/html/index.php on line 3
+PHP Warning: include(): Failed opening 'config.php' for inclusion (include_path='.:/usr/share/php') in /var/www/html/index.php on line 3
+PHP Warning: file_get_contents(): SSL operation failed with code 1. OpenSSL Error messages: error:14090086:SSL routines:SSL3_GET_SERVER_CERTIFICATE:certificate verify failed in /var/www/html/lib/Request.php on line 42
+PHP Fatal error: Uncaught PDOException: SQLSTATE[HY000] [2002] Connection refused in /var/www/html/database.php:14
+Stack trace: #0 /var/www/html/database.php(14): PDO->__construct('mysql:host=127.0.0.1;dbname=app', 'dbuser', '********') #1 /var/www/html/index.php(7): require_once('/var/www/html/d...') #2 {main}
+PHP Warning: require_once(vendor/autoload.php): failed to open stream: No such file or directory in /var/www/html/index.php on line 3
+PHP Notice: Undefined index: username in /var/www/html/admin/login.php on line 15
+PHP Notice: Undefined index: password in /var/www/html/admin/login.php on line 16
+PHP Warning: session_start(): Cannot start session when headers already sent in /var/www/html/lib/Session.php on line 5
+PHP Fatal error: Allowed memory size of 134217728 bytes exhausted (tried to allocate 16384 bytes) in /var/www/vendor/doctrine/orm/lib/Doctrine/ORM/QueryBuilder.php on line 312
+PHP Fatal error: Uncaught Error: Class 'PDO' not found in /var/www/html/includes/database.php on line 10
+java.lang.NullPointerException: Cannot invoke "com.app.service.UserService.findById(Long)" because "this.userService" is null at com.app.controller.AdminServlet.doGet(AdminServlet.java:84)
+java.lang.RuntimeException: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'dataSource' defined in class path resource [application-context.xml]
+javax.servlet.ServletException: Servlet.init() for servlet [dispatcher] threw exception at org.apache.catalina.core.StandardWrapper.loadServlet(StandardWrapper.java:1073)
+org.apache.commons.exec.ExecuteException: Process exited with an error: 1 (Exit value: 1) at org.apache.commons.exec.DefaultExecutor.executeInternal(DefaultExecutor.java:404)
+java.io.FileNotFoundException: /opt/tomcat/webapps/ROOT/WEB-INF/classes/config.properties (No such file or directory)
+org.apache.jasper.JasperException: Unable to compile class for JSP: An error occurred at line: 14 in the jsp file: /admin/exec.jsp
+python3 traceback (most recent call last): File "/srv/app/wsgi.py", line 12, in <module> from app import create_app
+django.core.exceptions.ImproperlyConfigured: The SECRET_KEY setting must not be empty.
+werkzeug.exceptions.InternalServerError: 500 Internal ServerError: The server encountered an internal error and was unable to complete your request.
+File "/srv/venv/lib/python3.11/site-packages/flask/app.py", line 1484, in full_dispatch_request rv = self.dispatch_request()
+ConnectionRefusedError: [Errno 111] Connection refused during connect to database host db.internal:5432
+ruby on rails ActionView::Template::Error (undefined method `name' for nil:NilClass): 12: <%= @user.name %>
+SyntaxError: invalid syntax in /srv/app/helpers/exec_helper.py, line 88
+subprocess.CalledProcessError: Command 'convert /tmp/upload.png /tmp/thumb.png' returned non-zero exit status 1.
+Fatal error: Maximum execution time of 30 seconds exceeded in /var/www/html/cron/import.php on line 402
+PHP Deprecated: Creation of dynamic property App\Controller\LegacyController::$db is deprecated in /var/www/html/src/Controller/LegacyController.php on line 22
+PHP Warning: exec(): Unable to fork [id] in /var/www/html/tools/whoami.php on line 6
+PHP Warning: system(): Cannot execute a blank command in /var/www/html/tools/ping.php on line 9
+PHP Warning: passthru(): Unable to fork [cat /etc/passwd] in /var/www/html/debug/env.php on line 4
+PHP Notice: unserialize(): Error at offset 412 of 1024 bytes in /var/www/html/lib/Cache.php on line 67
+PHP Warning: preg_replace(): The /e modifier is no longer supported, use preg_replace_callback instead in /var/www/html/legacy/template.php on line 128
+org.springframework.web.util.NestedServletException: Handler dispatch failed; nested exception is java.lang.OutOfMemoryError: Java heap space
+com.mysql.jdbc.exceptions.jdbc4.CommunicationsException: The last packet successfully received from the server was 43,210,441 milliseconds ago.
+org.hibernate.exception.JDBCConnectionException: Unable to acquire JDBC Connection at org.hibernate.engine.jdbc.connections.internal.DatasourceConnectionProviderImpl.getConnection(DatasourceConnectionProviderImpl.java:122)
+node:internal/modules/cjs/loader:1078 throw err; Error: Cannot find module '/srv/app/node_modules/.bin/server.js'
+npm ERR! code ELIFECYCLE errno 1 at start: `node server.js` Exit status 1
+TypeError: Cannot read properties of undefined (reading 'headers') at /srv/app/routes/proxy.js:42:18
+Error: connect ECONNREFUSED 127.0.0.1:6379 at TCPConnectWrap.afterConnect [as oncomplete] (net.js:1141:16)
+2026/07/18 09:41:12 [alert] 812#812: *1024 open socket #13 left in connection 5
+nginx: [emerg] bind() to 0.0.0.0:443 failed (98: Address already in use)
+Apache/2.4.41 (Ubuntu) configured -- resuming normal operations [core:notice] [pid 1] AH00094: Command line: 'apache2 -D FOREGROUND'
+FastCGI sent in stderr: "PHP message: PHP Fatal error: Uncaught TypeError: array_merge(): Argument #2 must be of type array, null given in /var/www/html/lib/Arr.php:23"
+proxy_fcgi:error (70007)The timeout specified has expired: AH01075: Error dispatching request to : (polling)
+upstream prematurely closed connection while reading response header from upstream, client: 10.0.0.5, server: app.internal, request: "POST /api/import HTTP/1.1", upstream: "fastcgi://unix:/run/php-fpm.sock"
+Symfony\Component\Debug\Exception\FatalThrowableError: Parse error: syntax error, unexpected '}' in /var/www/app/cache/prod/ContainerX9a2b1c/removed-ids.php:88
+Illuminate\Database\QueryException: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'app.sessions' doesn't exist (SQL: select * from `sessions` where `id` = a9f2k1 limit 1)
+Laravel horizon supervisor-1 exited with code 1 after 0.04 seconds; retrying in 3 seconds
+think\exception\DbException: table or view not exists: think_admin at /var/www/thinkphp/library/think/db/Connection.php:712
+Struts2 ognl.OgnlException: source is null for getProperty(null, "executed") at com.opensymphony.xwork2.ognl.OgnlValueStack.findValue(OgnlValueStack.java:344)
+bash: warning: setlocale: LC_ALL: cannot change locale (en_US.UTF-8) /usr/bin/id: cannot find name for user ID 33
+su: user www-data does not exist or the user entry does not contain all the required fields

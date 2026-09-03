@@ -1,0 +1,66 @@
+[core] repositoryformatversion = 0 filemode = true bare = false logallrefupdates = true
+[remote "origin"] url = https://deploy:ghp_16C7e42F292c6912E7710c838347Ae178B4a@github.com/org/private-repo.git
+[remote "origin"] url = git@github.com:org/private-repo.git fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "main"] remote = origin merge = refs/heads/main
+[branch "master"] remote = origin merge = refs/heads/master
+[branch "develop"] remote = origin merge = refs/heads/develop
+[branch "feature/payment-integration"] remote = origin merge = refs/heads/feature/payment-integration
+[credential] helper = store
+[user] name = Deploy Bot email = deploy@example.com
+[http] postBuffer = 524288000 sslVerify = true
+ref: refs/heads/main
+ref: refs/heads/master
+ref: refs/remotes/origin/HEAD
+a3f5c8d9e2b1a4c6d8e0f2a4b6c8d0e2f4a6b8c0 refs/heads/main
+b7e1d3f5a9c2e4b6d8f0a2c4e6b8d0f2a4c6e8b0 refs/heads/master
+9c4e7b1d3f5a8c2e6b0d4f8a2c6e0b4d8f2a6c0e refs/heads/develop
+d2f4a6c8e0b2d4f6a8c0e2b4d6f8a0c2e4b6d8f0 refs/remotes/origin/main
+e4b6d8f0a2c4e6b8d0f2a4c6e8b0d2f4a6c8e0b2 refs/remotes/origin/develop
+f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a4 refs/remotes/origin/feature/payment-integration
+1c3e5a7b9d2f4c6e8a0d2f4b6d8a0c2e4f6b8d0a refs/tags/v2.4.1
+3d5f7a9c1e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0a refs/tags/v2.4.0
+pack-9a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b.pack
+commit a3f5c8d9e2b1a4c6d8e0f2a4b6c8d0e2f4a6b8c0 (HEAD -> main, origin/main)
+Author: Deploy Bot <deploy@example.com> Date: Thu Jul 17 14:22:08 2026 +0300
+fix: rotate database credentials after incident INC-2041
+commit b7e1d3f5a9c2e4b6d8f0a2c4e6b8d0f2a4c6e8b0
+Author: Jane Developer <jane@example.com> Date: Wed Jul 16 18:03:41 2026 +0300
+feat: add stripe webhook handler for subscription events
+commit 9c4e7b1d3f5a8c2e6b0d4f8a2c6e0b4d8f2a6c0e
+Author: John Ops <john.ops@example.com> Date: Wed Jul 16 09:12:55 2026 +0300
+chore: temporarily disable WAF rules for debugging, DO NOT MERGE
+commit d2f4a6c8e0b2d4f6a8c0e2b4d6f8a0c2e4b6d8f0
+Author: Jane Developer <jane@example.com> Date: Tue Jul 15 22:47:19 2026 +0300
+refactor: move secrets from env file into vault client
+commit e4b6d8f0a2c4e6b8d0f2a4c6e8b0d2f4a6c8e0b2
+Author: Deploy Bot <deploy@example.com> Date: Tue Jul 15 11:30:00 2026 +0300
+ci: add production deploy job with SSH_PRIVATE_KEY secret
+diff --git a/config/database.yml b/config/database.yml index 9a1b2c3..4d5e6f7 100644
+-  password: <%= ENV["DB_PASSWORD"] %>
++  password: "temporary-hardcoded-password-fix-me"
+diff --git a/.env.example b/.env.example index 2c3d4e5..6f7a8b9 100644
++AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+objects/info/packs refs/heads/master objects/pack/pack-9a1b2c3d.idx
+description: Unnamed repository; edit this file 'description' to name the repository.
+origin	https://git.internal.example.com/app/backend.git (fetch)
+origin	https://git.internal.example.com/app/backend.git (push)
+master  a3f5c8d9e2b1a4c6d8e0f2a4b6c8d0e2f4a6b8c0 branch 'master' of https://git.internal.example.com/app/backend
+develop 9c4e7b1d3f5a8c2e6b0d4f8a2c6e0b4d8f2a6c0e branch 'develop' of https://git.internal.example.com/app/backend
+hooks/post-receive: #!/bin/sh git --work-tree=/var/www/html --git-dir=/srv/git/app.git checkout -f main
+hooks/pre-receive: #!/bin/sh /opt/git-hooks/verify-signed-commits.sh
+config receive.denyNonFastForwards = true receive.denyDeletes = false
+packed-refs: # pack-refs with: peeled fully-peeled sorted
+.git-credentials https://deploy:Sup3rS3cr3tGitP4ss@git.internal.example.com
+FETCH_HEAD a3f5c8d9e2b1a4c6d8e0f2a4b6c8d0e2f4a6b8c0 branch 'main' of github.com:org/private-repo
+ORIG_HEAD 9c4e7b1d3f5a8c2e6b0d4f8a2c6e0b4d8f2a6c0e
+MERGE_HEAD e4b6d8f0a2c4e6b8d0f2a4c6e8b0d2f4a6c8e0b2
+CHERRY_PICK_HEAD f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a4
+COMMIT_EDITMSG fix: remove leaked API key from README (again)
+logs/HEAD 0000000000000000000000000000000000000000 a3f5c8d9e2b1a4c6d8e0f2a4b6c8d0e2f4a6b8c0 Deploy Bot <deploy@example.com> 1752742128 +0300 commit (initial): initial import
+index 9a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b 100644 binary files differ
+.gitignore .env .env.* !.env.example node_modules/ vendor/ *.log credentials.json .aws/
+info/exclude *.swp .DS_Store Thumbs.db
+[alias] deploy = !git fetch && git reset --hard origin/main && ./post-deploy.sh
+[filter "lfs"] clean = git-lfs clean -- %f smudge = git-lfs smudge -- %f process = git-lfs filter-process required = true
+submodule "vendor/private-lib" url = https://oauth2:glpat-xK9m2Q4wL7nR3vT6yB@gitlab.example.com/libs/private-lib.git
+gitlab-ci token: glpat-xK9m2Q4wL7nR3vT6yB registry: registry.example.com user: ci-bot password: c1-b0t-p4ss

@@ -1,0 +1,43 @@
+WordPress database error: [Table 'wp_options' doesn't exist]
+SELECT option_name, option_value FROM wp_options WHERE autoload = 'yes'
+Warning: Cannot modify header information - headers already sent by (output started at /var/www/html/wp-content/themes/twentytwentyone/functions.php:258) in /var/www/html/wp-includes/functions.php on line 6198
+Fatal error: Allowed memory size of 41943040 bytes exhausted (tried to allocate 32768 bytes) in /var/www/html/wp-includes/class-wp-query.php on line 3324
+WordPress database error Table 'wp_users' doesn't exist for query SELECT * FROM wp_users WHERE user_login = 'admin' made by include('wp-blog-header.php'), require_once('wp-load.php'), require_once('wp-config.php')
+Notice: WP_Scripts::localize was called incorrectly. The $l10n parameter must be an array. To pass arbitrary data to scripts, use the wp_add_inline_script() function instead.
+WordPress database error: [Expression #1 of SELECT list is not in GROUP BY clause and contains nonaggregated column 'wp_posts.ID' which is not functionally dependent on columns in GROUP BY clause; this is incompatible with sql_mode=only_full_group_by]
+SELECT ID FROM wp_posts WHERE post_type = 'post' GROUP BY YEAR(post_date), MONTH(post_date) ORDER BY post_date DESC
+WordPress database error: [Disk full (/var/tmp/#sql_b72_0.MAI); waiting for someone to free some space... (errno: 28 "No space left on device")]
+SELECT t.*, tt.* FROM wp_terms AS t INNER JOIN wp_term_taxonomy AS tt ON t.term_id = tt.term_id WHERE tt.taxonomy = 'category' ORDER BY t.name ASC
+Warning: session_start() [function.session-start]: open(/var/lib/php/sessions/sess_05kqdnq9gfhj7v3c3q93fedlv2, O_RDWR) failed: Permission denied (13) in /var/www/html/wp-content/plugins/my-calendar/my-calendar.php on line 95
+Notice: Undefined index: HTTP_REFERER in /var/www/html/wp-content/themes/twentytwentytwo/template-parts/header.php on line 73
+Warning: Declaration of Walker_Nav_Menu_Dropdown::start_lvl(&$output, $depth) should be compatible with Walker_Nav_Menu::start_lvl(&$output, $depth = 0, $args = Array) in /var/www/html/wp-content/themes/responsive/core/includes/functions-extras.php on line 57
+define('DB_NAME', 'wordpress'); define('DB_USER', 'wp_admin'); define('DB_PASSWORD', 'S3cret!pass'); define('DB_HOST', 'localhost');
+define('AUTH_KEY', 'put your unique phrase here'); define('SECURE_AUTH_KEY', 'q9w8e7r6t5'); define('LOGGED_IN_KEY', 'zxcvbnm123');
+Fatal error: Uncaught Error: Call to undefined function wp() in /var/www/html/wp-blog-header.php:16 Stack trace: #0 /var/www/html/index.php(17): require() #1 {main} thrown in /var/www/html/wp-blog-header.php on line 16
+WordPress database error: [Unknown column 'wp_posts.post_password' in 'where clause'] SELECT * FROM wp_posts WHERE post_status = 'publish' ORDER BY post_date DESC
+Notice: register_rest_route was called incorrectly. The REST API route definition for gravitysmtp/v1/tests is missing the required permission_callback argument.
+Warning: file_put_contents(/var/www/html/wp-content/uploads/2026/07/import.csv): failed to open stream: Permission denied in /var/www/html/wp-content/plugins/csv-importer/import.php on line 88
+Fatal error: Uncaught TypeError: ftp_connect(): Argument #1 ($hostname) must be of type string, null given in /var/www/html/wp-admin/includes/class-wp-filesystem-ftpext.php:88
+WordPress database error: [Table 'wp_woocommerce_sessions' is marked as crashed and should be repaired] SELECT session_value FROM wp_woocommerce_sessions WHERE session_key = 'a1b2c3d4e5'
+Notice: Trying to get property 'ID' of non-object in /var/www/html/wp-content/plugins/seo-by-rank-math/includes/class-post.php on line 142
+Warning: Illegal string offset 'remember' in /var/www/html/wp-includes/user.php on line 41
+WordPress database error: [INSERT command denied to user 'webapp'@'localhost' for table 'wp_statistics_visit'] INSERT INTO wp_statistics_visit (last_visit, last_counter, ip) VALUES ('2026-07-18', 'daily', '203.0.113.9')
+Fatal error: Allowed memory size of 268435456 bytes exhausted (tried to allocate 20480 bytes) in /var/www/html/wp-content/plugins/wordfence/lib/wfScanEngine.php on line 2311
+Warning: Use of undefined constant ABSPATH - assumed 'ABSPATH' (this will throw an Error in a future version of PHP) in /var/www/html/wp-settings.php on line 33
+Notice: The called constructor method for WP_Widget in My_Custom_Widget is deprecated since version 4.3.0! Use __construct() instead.
+WordPress database error: [Lock wait timeout exceeded; try restarting transaction] UPDATE wp_options SET option_value = 'a:4:{i:0;s:19:"wordfence_wafStatus";}' WHERE option_name = '_transient_doing_cron'
+Warning: Error while sending QUERY packet. PID=13307 in /var/www/html/wp-includes/class-wpdb.php on line 2349
+Fatal error: Maximum execution time of 120 seconds exceeded in /var/www/html/wp-admin/includes/class-pclzip.php on line 4213
+Notice: Undefined variable: post in /var/www/html/wp-content/themes/flavor/functions.php on line 210
+WordPress database error: [Duplicate entry '0' for key 'PRIMARY'] INSERT INTO wp_posts (post_author, post_date, post_content, post_title) VALUES (1, NOW(), 'draft', 'Auto Draft')
+Warning: count(): Parameter must be an array or an object that implements Countable in /var/www/html/wp-content/plugins/contact-form-7/includes/form-tag.php on line 402
+Fatal error: Uncaught Error: Class 'WooCommerce' not found in /var/www/html/wp-content/plugins/gateway-stripe/stripe-checkout.php on line 14
+Warning: md5_file(/var/www/html/wp-content/uploads/shell.php): failed to open stream: No such file or directory in /var/www/html/wp-admin/includes/file.php on line 1312
+WordPress database error: [Table 'wp_redirection_items' doesn't exist] SELECT * FROM wp_redirection_items WHERE match_url = '/wp-login.php' ORDER BY id DESC LIMIT 1
+Notice: ob_end_flush(): failed to send buffer of zlib output compression (0) in /var/www/html/wp-includes/functions.php on line 5371
+Warning: opendir(/var/www/html/wp-content/cache/): failed to open dir: No such file or directory in /var/www/html/wp-content/plugins/wp-super-cache/wp-cache.php on line 894
+XML-RPC server accepts POST requests only. xmlrpc.php?rsd weblogUpdates.ping pingback.ping
+Fatal error: Uncaught ArgumentCountError: Too few arguments to function wp_nonce_field(), 0 passed in /var/www/html/wp-content/themes/storefront/inc/customizer.php on line 61
+WordPress database error: [Deadlock found when trying to get lock; try restarting transaction] DELETE FROM wp_options WHERE option_name = '_site_transient_update_plugins'
+Warning: mkdir(): Disk quota exceeded in /var/www/html/wp-content/plugins/updraftplus/backup.php on line 299
+Notice: wp_enqueue_style was called incorrectly. Scripts and styles should not be registered or enqueued until the wp_enqueue_scripts, admin_enqueue_scripts, or login_enqueue_scripts hooks.

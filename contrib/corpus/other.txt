@@ -1,0 +1,49 @@
+It works! This is the default web page for this server. The web server software is running but no content has been added, yet.
+Apache2 Ubuntu Default Page: This is the default welcome page used to test the correct operation of the Apache2 server after installation on Ubuntu systems.
+Welcome to nginx! If you see this page, the nginx web server is successfully installed and working. Further configuration is required.
+Index of /backup Name Last modified Size Description Parent Directory - old-site-2024.tar.gz 2024-11-02 03:14 214M db-dump-2025-01.sql.gz 2025-01-17 02:03 88M
+Index of /files Name Last modified Size Description apache-default/ 2023-05-19 10:42 - wordpress-6.4.zip 2023-12-01 09:00 28M
+404 Not Found The requested URL was not found on this server. Apache/2.4.41 (Ubuntu) Server at example.com Port 80
+403 Forbidden You don't have permission to access this resource. Additionally, a 403 Forbidden error was encountered while trying to use an ErrorDocument to handle the request.
+500 Internal Server Error The server encountered an internal error or misconfiguration and was unable to complete your request. Please contact the server administrator at webmaster@example.com to inform them of the time this error occurred, and the actions you performed just before this error.
+502 Bad Gateway The proxy server received an invalid response from an upstream server. nginx/1.25.4
+503 Service Unavailable The server is temporarily unable to service your request due to maintenance downtime or capacity problems. Please try again later.
+This site can't be reached example.com took too long to respond. ERR_CONNECTION_TIMED_OUT
+Under construction. Check back soon! We're working hard to bring you something amazing.
+Maintenance mode: We'll be back shortly. The site is down for scheduled maintenance.
+Please wait while you are redirected to the login page. If you are not redirected automatically, follow this link.
+Login Username Password Remember me Forgot your password? Sign in Don't have an account? Register
+Sign in to your account to continue. Email address Password Sign in with SSO Sign in with Google Sign in with GitHub
+Dashboard Overview Analytics Reports Settings Users Billing API Keys Webhooks Integrations Audit Log
+User admin Last login 2026-07-18 09:41:12 from 10.0.4.55 Two-factor authentication enabled Role: Administrator
+API Keys Live keys publishable pk_live_51HxK2mLpQrStUvWxYz012345 secret sk_live_********************** Test keys pk_test_xxxxxxxx sk_test_xxxxxxxx
+Recent activity: admin deployed v2.4.1 to production (2 hours ago) deploy-bot merged MR !482 into main (5 hours ago) system rotated TLS certificates (1 day ago)
+System status: All systems operational. Uptime: 99.98% over the last 90 days. No incidents reported.
+Search results for "password": 12 documents found. credentials.xlsx — modified 2026-07-12 by admin. vpn-config.ovpn — modified 2026-06-28 by deploy.
+Download vpn-config.ovpn remote vpn.example.com 1194 proto udp dev tun ca ca.crt cert client.crt key client.key cipher AES-256-GCM auth SHA256
+docs/internal/runbooks/database-failover.md: Use `sudo systemctl stop patroni` on the standby, then promote with `patronictl switchover --master db-02`.
+docs/internal/runbooks/on-call.md: Pager rotation: primary jane@example.com (week 29), secondary john.ops@example.com (week 30). Escalation: cto@example.com.
+wiki/Home.md: Welcome to the internal wiki. Environments: production (app.example.com), staging (staging.internal.example.com), dev (dev.internal.example.com).
+wiki/Deploys.md: Deploys go through GitLab CI. Production deploys require approval from two maintainers and run `helm upgrade web ./chart -n production`.
+wiki/Secrets.md: All application secrets live in Vault at https://vault.internal:8200 under kv/app/production. Do not commit .env files.
+ticket INC-2041: credential rotation completed 2026-07-17. Affected: stripe live key, sendgrid api key, rds master password. Verified no unauthorized access.
+CHANGELOG v2.4.1 (2026-07-17): fix: rotate database credentials after incident INC-2041. feat: add stripe webhook handler. chore: upgrade base image to ubuntu 22.04.
+README: production deploy: `make deploy ENV=production`. Requires ~/.kube/config for the production cluster and registry login.
+package.json "name": "web", "version": "2.4.1", "private": true, "scripts": {"start": "node server.js", "build": "webpack --mode=production"}
+composer.json "require": {"php": "^7.4", "laravel/framework": "^8.0", "stripe/stripe-php": "^10.0", "predis/predis": "^2.0"}
+requirements.txt Django==4.2.7 psycopg2-binary==2.9.9 redis==5.0.1 celery==5.3.4 gunicorn==21.2.0 sentry-sdk==1.39.1
+Gemfile source 'https://rubygems.org' gem 'rails', '~> 7.1' gem 'pg', '~> 1.5' gem 'redis', '~> 5.0' gem 'sidekiq', '~> 7.2' gem 'puma', '~> 6.4'
+go.mod module github.com/example/api go 1.22 require ( github.com/gin-gonic/gin v1.9.1 github.com/jackc/pgx/v5 v5.5.5 github.com/redis/go-redis/v9 v9.5.1 )
+requests 200 GET / 200 GET /assets/app.js 200 GET /api/v1/users 401 GET /admin 302 POST /login 200 GET /favicon.ico 200
+access log 203.0.113.9 - - [18/Jul/2026:09:41:12 +0300] "GET /api/v1/users HTTP/2.0" 200 4821 "-" "Mozilla/5.0"
+error log [Fri Jul 18 09:41:12.441234 2026] [proxy_fcgi:error] [pid 812:tid 1402] (70007)The timeout specified has expired: [client 10.0.0.5:51842] AH01075: Error dispatching request to : (polling)
+SELECT count(*) FROM sessions WHERE created_at > now() - interval '1 hour'; 4123 rows in set (0.012 sec)
+SHOW TABLES; sessions users orders products payments audit_log migrations password_resets personal_access_tokens
+INSERT INTO audit_log (actor, action, target, created_at) VALUES ('admin', 'user.impersonate', 'user:42', NOW());
+git log --oneline -5: a3f5c8d fix: rotate database credentials after incident INC-2041 b7e1d3f feat: add stripe webhook handler 9c4e7b1 chore: disable WAF rules for debugging d2f4a6c refactor: move secrets into vault e4b6d8f ci: production deploy job
+systemctl status app.service: Active: active (running) since Fri 2026-07-18 09:41:12 EEST; 6h ago Main PID: 812 (node) Tasks: 11 Memory: 412.3M
+journalctl -u app -n 3: Jul 18 15:22:41 app-web-1 node[812]: listening on 0.0.0.0:8080 Jul 18 15:22:41 app-web-1 node[812]: connected to postgres at db.internal:5432 Jul 18 15:22:42 app-web-1 node[812]: worker pool ready (4 threads)
+df -h: /dev/sda1 460G 210G 227G 49% / /dev/sdb1 1.8T 1.1T 640G 64% /var/lib/postgresql tmpfs 16G 2.1M 16G 1% /run
+free -m: total 32768 used 18432 free 5120 buff/cache 9216 available 13824 swap 4096 used 128
+top: load average: 0.42, 0.38, 0.41 Tasks: 142 total, 1 running, 141 sleeping %Cpu(s): 3.1 us, 1.2 sy, 0.0 ni, 95.4 id
+netstat -tlnp: tcp 0 0 0.0.0.0:8080 LISTEN 812/node tcp 0 0 127.0.0.1:9100 LISTEN 815/node_exporter tcp6 0 0 :::22 LISTEN 1/systemd

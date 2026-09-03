@@ -1,0 +1,21 @@
+[package]
+name                   = "eris-cli"
+description            = "Admin CLI for the Eris tarpit daemon"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+authors.workspace      = true
+
+[[bin]]
+name = "eris"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace      = true
+clap.workspace        = true
+directories.workspace = true
+eris-admin.workspace  = true
+eris-core.workspace   = true
+serde.workspace       = true
+serde_json.workspace  = true
+tokio.workspace       = true

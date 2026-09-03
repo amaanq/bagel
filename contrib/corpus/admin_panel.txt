@@ -1,0 +1,43 @@
+phpMyAdmin 5.2.1 Login mysqli root@localhost Server: 127.0.0.1 via TCP/IP Server type: MySQL Server version: 8.0.36-0ubuntu0.22.04.1 Protocol version: 10
+Database server Web server Database User account Export Import Settings Replication Variables Charsets Engines Plugins Status
+SELECT * FROM `information_schema`.`PROCESSLIST` ORDER BY `ID` ASC LIMIT 100; MySQL returned an empty result set (i.e. zero rows). (Query took 0.0012 seconds.)
+SHOW GLOBAL STATUS; Connections 1428394 Max_used_connections 187 Aborted_connects 2931 Threads_connected 12 Uptime 1830214
+CREATE USER 'backup'@'%' IDENTIFIED BY 'B4ckupP4ss!'; GRANT SELECT, LOCK TABLES ON *.* TO 'backup'@'%'; FLUSH PRIVILEGES;
+Error SQL query: Documentation #1045 - Access denied for user 'admin'@'localhost' (using password: YES)
+Error SQL query: Documentation #1146 - Table 'app.sessions' doesn't exist
+Browse Structure SQL Search Insert Export Import Operations Tracking Triggers Privileges Routines Events Designer
+Table wp_users Action Browse Structure Search Insert Empty Drop 12 MyISAM utf8mb4_unicode_ci 4.2 MiB
+user_login user_pass user_nicename user_email user_registered user_status display_name admin $P$BYx9K2mQ4wL7nR3vT6yB8cD5fG2hJ8kL admin admin@example.com 2024-01-14 09:22:31 0 admin
+adminer 4.8.1 MySQL 8.0.36 localhost:3306 webapp information_schema performance_schema sys app
+Solr Admin 8.11.2 collection1 numDocs: 1420834 maxDoc: 1423100 deletedDocs: 2266 indexHeapUsageBytes: 98304 version: 2 segmentCount: 12
+core: collection1 shard: shard1 replica: replica1 state: active leader: true base_url: http://solr.internal:8983/solr
+Luke Request Handler /admin/luke?show=schema&wt=json field: _text_ type: text_general indexed: true stored: false
+{"responseHeader":{"status":0,"QTime":1},"initArgs":{"defaults":["config","schema"]},"status":{"collection1":{"name":"collection1","instanceDir":"/var/solr/data/collection1","dataDir":"/var/solr/data/collection1/data/"}}}
+Spring Boot Actuator 2.7.18 {"status":"UP","components":{"db":{"status":"UP","details":{"database":"PostgreSQL","validationQuery":"isValid()"}},"diskSpace":{"status":"UP","details":{"total":500107862016,"free":236223201280,"threshold":10485760}},"ping":{"status":"UP"}}}
+{"property":{"name":"spring.datasource.url","value":"jdbc:postgresql://db.internal:5432/app"},"origin":"class path resource [application.yml]:12:18"}
+{"name":"management.endpoints.web.exposure.include","value":"health,info,env,heapdump,loggers,metrics,mappings,configprops,beans"}
+{"beans":[{"bean":"dataSource","scope":"singleton","type":"com.zaxxer.hikari.HikariDataSource","resource":"class path resource [application.yml]"}]}
+{"contexts":{"application":{"mappings":{"dispatcherServlets":{"dispatcherServlet":[{"handler":"Actuator web endpoint 'heapdump'","predicate":"{GET /actuator/heapdump, produces [application/octet-stream]}"}]}}}}
+[INFO] org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver: Exposing 14 endpoint(s) beneath base path '/actuator'
+management.endpoint.heapdump.enabled=true management.endpoint.env.show-values=ALWAYS
+Grafana v10.4.2 Home Dashboards Explore Alerting Connections Administration org: Main Org. role: Admin
+InfluxDB 2.7.6 Server: influxdb.internal:8086 org: ops bucket: metrics token: 9a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d==
+Prometheus 2.51.2 Status Targets Service Discovery Configuration Rules Alerts Graph
+up{instance="node-3:9100", job="node-exporter"} 1 up{instance="postgres:9187", job="postgres-exporter"} 1
+process_open_fds{instance="node-3:9100"} 412 node_memory_MemAvailable_bytes{instance="node-3:9100"} 6.738919424e+09
+Jenkins 2.440.3 Manage Jenkins Credentials System Global Add domain Jenkins Add credentials Kind: Username with password Scope: Global
+Username: deploy Password: ********** ID: deploy-cred Description: production deploy credential
+lastSuccess #421 by Deploy Bot on build-01 (label: docker) in 2m 41s: docker build -t registry.internal/app/web:2.4.1 .
+GitLab 16.11.3 Admin Area Users Groups Projects Runners Settings Monitoring CI/CD admin@example.com Root Administrator
+runner token: GR1348941xK9m2Q4wL7nR3vT6yB url: https://gitlab.example.com/ executor: docker tag_list: docker,linux
+Kibana 8.13.4 Discover Dashboard Canvas Maps Machine Learning Observability Security Stack Management index pattern: app-logs-*
+GET /api/status {"status":{"overall":{"level":"available"}},"metrics":{"kibana":{"uuid":"9a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d"}}}
+Zabbix 6.4.14 Monitoring Latest data Maps Discovery Services Inventory Reports Configuration Administration guest/guest Admin/zabbix
+Nagios XI 2024R1.2.1 Home Views Dashboards Reports Incidents Configure Admin Host Status Summary: 14 UP, 1 DOWN, 2 UNREACHABLE
+Portainer 2.20.3 Home App Templates Stacks Containers Images Networks Volumes Registries Settings admin endpoint: local
+RabbitMQ Management 3.13.1 Overview Connections Channels Exchanges Queues Admin user: app vhost: / uptime: 21d 4h 12m
+MinIO Console 8.0.36 Buckets app-uploads-prod app-backups identity: minioadmin policy: readwrite region: us-east-1
+Vault UI 1.16.2 Secrets Engines Access Policies Tools Status: unsealed key-shares: 3 key-threshold: 2 cluster: vault-prod
+Consul 1.18.1 Services Nodes Key/Value Intentions ACL datacenter: dc1 leader: alive serf: synced
+Keycloak 24.0.4 Master realm app realm Clients Roles Identity providers User federation admin console
+Authelia 4.38.8 Sign in Username Password Remember me Reset password? You are not authorized to view this page

@@ -1,0 +1,52 @@
+{"Id":"9a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b","Created":"2026-06-30T08:14:22Z","Image":"postgres:14.11","State":{"Status":"running","Running":true,"StartedAt":"2026-06-30T08:14:23Z"}}
+{"Id":"b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c","Created":"2026-07-02T11:40:05Z","Image":"redis:7.2-alpine","State":{"Status":"running","Running":true}}
+{"Id":"c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d","Created":"2026-07-05T16:02:51Z","Image":"registry.internal/app/web:2.4.1","State":{"Status":"running","Running":true}}
+CONTAINER ID   IMAGE                          COMMAND                  CREATED        STATUS        PORTS                    NAMES
+9a1b2c3d4e5f   postgres:14.11                 "docker-entrypoint.s…"   3 weeks ago    Up 3 weeks    5432/tcp                 app-postgres-1
+b2c3d4e5f6a7   redis:7.2-alpine               "docker-entrypoint.s…"   2 weeks ago    Up 2 weeks    6379/tcp                 app-redis-1
+c3d4e5f6a7b8   registry.internal/app/web:2.4.1   "/entrypoint.sh"      6 days ago     Up 6 days     0.0.0.0:8080->8080/tcp   app-web-1
+d4e5f6a7b8c9   nginx:1.25-alpine              "/docker-entrypoint.…"   4 days ago     Up 4 days     0.0.0.0:443->443/tcp     edge-proxy
+e5f6a7b8c9d0   sidekiq:7.3                    "bundle exec sidekiq"    2 days ago     Up 2 days                              app-worker-1
+version: "3.8" services: web: image: registry.internal/app/web:2.4.1 environment: - DATABASE_URL=postgres://deploy:Pr0dDBpass!@postgres:5432/appdb
+services: db: image: postgres:14.11 volumes: - pgdata:/var/lib/postgresql/data env_file: - .env.production restart: always
+networks: backend: driver: bridge ipam: config: - subnet: 172.28.0.0/16 gateway: 172.28.0.1
+apiVersion: v1 kind: Secret metadata: name: db-credentials namespace: production
+apiVersion: v1 kind: Secret metadata: name: db-credentials namespace: production type: Opaque data: username: ZGVwbG95 password: UHIwZERCcGFzcyE=
+stringData: postgres-password: UHIwZERCcGFzcyE= redis-password: cjNkMXNQNHNzdzByZA== jwt-secret: OXU4SzFzUXo0ZVZ4N3lOMHAzYlQ2bUcyaEo1Zkw4YQ==
+apiVersion: apps/v1 kind: Deployment metadata: name: web namespace: production spec: replicas: 3 selector: matchLabels: app: web
+containers: - name: web image: registry.internal/app/web:2.4.1 env: - name: DB_PASSWORD valueFrom: secretKeyRef: name: db-credentials key: password
+kind: Service apiVersion: v1 metadata: name: postgres namespace: production spec: type: ClusterIP clusterIP: 10.96.14.22 ports: - port: 5432
+kind: ConfigMap metadata: name: app-config namespace: production data: DATABASE_HOST: postgres.production.svc.cluster.local REDIS_URL: redis://redis:6379/0
+kubectl config set-credentials deploy --token=eyJhbGciOiJSUzI1NiIsImtpZCI6Ijk4N2Y2ZTRjM2I0YTZkN2U4ZjljNGEwYjJjNGQ2ZThm
+current-context: production cluster: https://kubernetes.default.svc:443 certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t
+NAME                            READY   STATUS    RESTARTS   AGE   IP           NODE
+web-7d9f4b6c5-x2vnm           1/1     Running   0          6d    10.244.1.42  node-3
+postgres-0                     1/1     Running   1          21d   10.244.2.17  node-2
+redis-6f8c9d4b5-pqkrt        1/1     Running   0          14d   10.244.1.88  node-3
+worker-5c7b8d9f4-jh2xw       1/1     Running   3          2d    10.244.3.101 node-1
+ingress-nginx-controller-9k2m4 1/1     Running   0          30d   10.244.0.15  node-1
+terraform.tfstate version: 4 terraform_version: 1.8.4 serial: 142 lineage: 9a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
+"module": "module.vpc", "mode": "managed", "type": "aws_vpc", "name": "main", "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]"
+"module": "module.rds", "type": "aws_db_instance", "instances": [{"attributes": {"endpoint": "appdb.c9a1b2c3d4e5.us-east-1.rds.amazonaws.com:5432"}}]
+"module": "module.eks", "type": "aws_eks_cluster", "attributes": {"name": "production", "version": "1.29", "endpoint": "https://9A1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D.gr7.us-east-1.eks.amazonaws.com"}}
+"resources": [{"type": "aws_iam_access_key", "instances": [{"attributes": {"id": "AKIA3EXAMPLE4EXAMPLE", "secret": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"}}]}]
+"outputs": {"db_password": {"value": "Pr0dDBpass!", "type": "string", "sensitive": true}}
+docker login registry.internal -u ci-bot -p c1-b0t-p4ss WARNING! Your password will be stored unencrypted in /home/deploy/.docker/config.json
+{"auths":{"registry.internal":{"auth":"Y2ktYm90OmMxLWIwdC1wNHNz"}},"HttpHeaders":{"User-Agent":"Docker-Client/24.0.7 (linux)"}}
+GET /v1.41/containers/json?all=1 HTTP/1.1 Host: docker.internal:2375 User-Agent: Docker-Client/24.0.7
+HTTP/1.1 200 OK Content-Type: application/json [{"Id":"9a1b2c3d4e5f","Names":["/app-postgres-1"],"Image":"postgres:14.11","Ports":[{"IP":"0.0.0.0","PrivatePort":5432,"PublicPort":5432,"Type":"tcp"}]}]
+docker exec -it app-postgres-1 psql -U deploy appdb -c "SELECT * FROM users LIMIT 5;"
+/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375 --tls=false containerd://run/containerd/containerd.sock
+level=info msg="API listen on [::]:2375" level=warning msg="Binding to TCP socket without TLS is insecure"
+Error response from daemon: pull access denied for registry.internal/app/web:latest, repository does not exist or may require 'docker login'
+helm list -n production NAME NAMESPACE REVISION STATUS CHART APP VERSION web production 14 deployed web-2.4.1 2.4.1
+helm get values web -n production imagePullSecrets: - name: registry-cred image: repository: registry.internal/app/web tag: "2.4.1"
+secret/registry-cred created kubectl create secret docker-registry registry-cred --docker-server=registry.internal --docker-username=ci-bot --docker-password=c1-b0t-p4ss
+FATA[0000] Get "https://registry.internal/v2/": x509: certificate signed by unknown authority
+WARN[0000] Using --password via the CLI is insecure. Use --password-stdin.
+drone-ci build #421 succeeded commit a3f5c8d branch main author deploy image registry.internal/app/web:2.4.1
+gitlab-runner register --url https://gitlab.example.com/ --registration-token GR1348941xK9m2Q4wL7nR3vT6yB
+[runners.docker] privileged = true [[runners.docker.services]] name = "docker:dind" alias = "docker"
+level=warning msg="could not change group /var/run/docker.sock: operation not permitted"
+Falco detected: Notice A shell was spawned in a container with an attached terminal (user=root container=app-web-1 command=bash)
+containerd[812]: time="2026-07-18T09:41:12Z" level=error msg="failed to load cni config" error="no networks found in /etc/cni/net.d"

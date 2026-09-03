@@ -1,0 +1,66 @@
+root:x:0:0:root:/root:/bin/bash
+daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
+bin:x:2:2:bin:/bin:/usr/sbin/nologin
+sys:x:3:3:sys:/dev:/usr/sbin/nologin
+sync:x:4:65534:sync:/bin:/bin/sync
+games:x:5:60:games:/usr/games:/usr/sbin/nologin
+man:x:6:12:man:/var/cache/man:/usr/sbin/nologin
+lp:x:7:7:lp:/var/spool/lpd:/usr/sbin/nologin
+mail:x:8:8:mail:/var/mail:/usr/sbin/nologin
+news:x:9:9:news:/var/spool/news:/usr/sbin/nologin
+uucp:x:10:10:uucp:/var/spool/uucp:/usr/sbin/nologin
+proxy:x:13:13:proxy:/bin:/usr/sbin/nologin
+www-data:x:33:33:www-data:/var/www:/usr/sbin/nologin
+backup:x:34:34:backup:/var/backups:/usr/sbin/nologin
+list:x:38:38:Mailing List Manager:/var/list:/usr/sbin/nologin
+irc:x:39:39:ircd:/run/ircd:/usr/sbin/nologin
+gnats:x:41:41:Gnats Bug-Reporting System (admin):/var/lib/gnats:/usr/sbin/nologin
+nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
+systemd-network:x:100:102:systemd Network Management,,,:/run/systemd:/usr/sbin/nologin
+systemd-resolve:x:101:103:systemd Resolver,,,:/run/systemd:/usr/sbin/nologin
+messagebus:x:102:105::/nonexistent:/usr/sbin/nologin
+syslog:x:104:111::/home/syslog:/usr/sbin/nologin
+uuidd:x:105:112::/run/uuidd:/usr/sbin/nologin
+tcpdump:x:106:113::/nonexistent:/usr/sbin/nologin
+sshd:x:107:65534::/run/sshd:/usr/sbin/nologin
+landscape:x:108:114::/var/lib/landscape:/usr/sbin/nologin
+pollinate:x:109:1::/var/cache/pollinate:/bin/false
+deploy:x:1000:1000:Deploy,,,:/home/deploy:/bin/bash
+git:x:1001:1001:Git,,,:/home/git:/bin/bash
+postgres:x:110:116:PostgreSQL administrator,,,:/var/lib/postgresql:/bin/bash
+redis:x:111:117::/var/lib/redis:/usr/sbin/nologin
+mysql:x:112:118:MySQL Server,,,:/nonexistent:/bin/false
+root:$6$xyz$9a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5:19500:0:99999:7:::
+deploy:$6$xyz$f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a4c6e8b0d2f4a6c8e0b2:19500:0:99999:7:::
+www-data:!:19000:0:99999:7::: git:!:19500:0:99999:7::: postgres:!:19500:0:99999:7:::
+127.0.0.1 localhost 127.0.1.1 app-web-1 ::1 ip6-localhost ip6-loopback fe00::0 ip6-localnet ff00::0 ip6-mcastprefix ff02::1 ip6-allnodes ff02::2 ip6-allrouters
+10.0.4.21 db.internal db 10.0.4.22 redis.internal redis 10.0.4.30 vault.internal vault 172.28.0.1 gateway
+search internal.example.com example.com nameserver 10.0.0.2 nameserver 10.0.0.3 options ndots:5
+PermitRootLogin prohibit-password PasswordAuthentication no PubkeyAuthentication yes AuthorizedKeysFile .ssh/authorized_keys
+AllowUsers deploy git Port 30 Protocol 2 PermitEmptyPasswords no MaxAuthTries 3 ClientAliveInterval 300
+-----BEGIN OPENSSH PRIVATE KEY----- b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABlwAAAAdzc2gtcn
+-----BEGIN RSA PRIVATE KEY----- MIIEpAIBAAKCAQEA7d5c8f9a2b4c6e8f0a1b3c5d7e9f2a4b6c8d0e1f3a5b7c9d2e4f6a8b0c1d3e5f7a9b2c4d6e8f0a1b3c5d7e9f
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7d5c8f9a2b4c6e8f0a1b3c5d7e9f2a4b6c8d0e1f3a5b7c9d2e4f6a8b0c1d3e5f7a9b2c4d6e8f0a1b3c5d7e9f2a4b6c8d0e1f3a5b7c9d2e4f6a8b0c1d3e5f7a9b2c4d6e8f0a1b3c5d7e9f deploy@build-01
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG9a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c deploy@build-01
+HOME=/root LOGNAME=root PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LANG=en_US.UTF-8 SHELL=/bin/bash PWD=/root
+USER=www-data HOME=/var/www PATH=/usr/local/bin:/usr/bin:/bin TERM=xterm-256color MAIL=/var/mail/www-data
+DATABASE_URL=postgres://deploy:Pr0dDBpass!@db.internal:5432/appdb REDIS_URL=redis://:r3d1sP4ssw0rd@redis.internal:6379/0
+APP_SECRET=9u8K1sQz4eVx7yN0pW3bT6mG2hJ5fL8a NODE_ENV=production PORT=8080 HOST=0.0.0.0
+/proc/self/cmdline: /usr/sbin/apache2 -k start /usr/bin/php-fpm7.4 --nodaemonize --fpm-config /etc/php/7.4/fpm/php-fpm.conf
+/proc/self/cwd -> /var/www/html /proc/self/exe -> /usr/sbin/apache2 /proc/self/root -> /
+/proc/version: Linux version 5.15.0-107-generic (buildd@lcy02-amd64-029) (gcc (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #117-Ubuntu SMP Fri Apr 26 12:26:49 UTC 2024
+/proc/net/tcp: sl local_address rem_address st tx_queue rx_queue tr tm->when retrnsmt uid timeout inode 0: 0100007F:2382 00000000:0000 0A 00000000:00000000 00:00000000 00000000 0 0 18342 1
+cat /etc/issue: Ubuntu 22.04.4 LTS \n \l cat /etc/hostname: app-web-1
+ls -la /root/.ssh/: total 12 drwx------ 2 root root 4096 Jul 15 11:30 . drwx------ 8 root root 4096 Jul 17 14:22 .. -rw------- 1 root root 2602 Jul 15 11:30 id_rsa -rw-r--r-- 1 root root 571 Jul 15 11:30 id_rsa.pub -rw-r--r-- 1 root root 444 Jul 15 11:30 authorized_keys
+ls -la /home/deploy/: .bash_history .bashrc .cache .config .docker .gitconfig .gnupg .kube .local .npmrc .profile .ssh .viminfo
+docker-compose.yml Dockerfile .env .env.production Makefile README.md ansible/ terraform/ scripts/ vendor/ composer.json package.json
+mysqldump -u root -pR00tP4ssw0rd! --all-databases > /var/backups/mysql/full-$(date +%F).sql
+pg_dump -U deploy -h db.internal appdb | gzip > /var/backups/pg/appdb-$(date +%F).sql.gz
+tar czf /var/backups/www-$(date +%F).tar.gz /var/www/html --exclude='*/cache/*'
+rsync -avz --delete /var/www/html/ backup@backup.internal:/srv/backups/www/
+crontab -l: */5 * * * * /usr/bin/php /var/www/html/cron.php >> /var/log/cron.log 2>&1 0 3 * * * /opt/scripts/backup.sh
+history | tail: 421 cd /var/www/html 422 vim .env 423 systemctl restart php7.4-fpm 424 mysqldump -u root -p 425 cat /etc/shadow 426 id 427 ls /home 428 cat ~/.ssh/id_rsa
+find / -name "*.pem" 2>/dev/null: /etc/ssl/private/server.key /home/deploy/.docker/ca.pem /etc/letsencrypt/live/example.com/privkey.pem
+cat /etc/apache2/apache2.conf: Mutex file:${APACHE_LOCK_DIR} default PidFile ${APACHE_PID_FILE} Timeout 300 KeepAlive On MaxKeepAliveRequests 100 IncludeOptional mods-enabled/*.load Include ports.conf
+cat /etc/nginx/nginx.conf: user www-data; worker_processes auto; pid /run/nginx.pid; include /etc/nginx/modules-enabled/*.conf; events { worker_connections 768; } http { sendfile on; include /etc/nginx/conf.d/*.conf; include /etc/nginx/sites-enabled/*; }
+cat /etc/mysql/my.cnf: [mysqld] bind-address = 0.0.0.0 port = 3306 datadir = /var/lib/mysql socket = /var/run/mysqld/mysqld.sock skip-name-resolve
