@@ -1,0 +1,18 @@
+[package]
+name                   = "bagel-traps"
+description            = "Bagel trap signatures: path and user-agent classification with report categories"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+authors.workspace      = true
+
+[dependencies]
+bagel-core.workspace = true
+ipnetwork.workspace  = true
+regex.workspace      = true
+
+[dev-dependencies]
+bagel-config.workspace = true
+
+[lints]
+workspace = true

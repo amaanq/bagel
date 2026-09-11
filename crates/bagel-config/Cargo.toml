@@ -1,0 +1,21 @@
+[package]
+name                   = "bagel-config"
+description            = "Configuration and CLI for Bagel"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+authors.workspace      = true
+
+[dependencies]
+bagel-core.workspace   = true
+etcetera.workspace     = true
+ipnetwork.workspace    = true
+knead.workspace        = true
+knead-derive.workspace = true
+pound.workspace        = true
+regex.workspace        = true
+serde.workspace        = true
+tracing.workspace      = true
+
+[lints]
+workspace = true

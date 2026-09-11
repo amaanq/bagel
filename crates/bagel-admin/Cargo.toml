@@ -1,0 +1,15 @@
+[package]
+name                   = "bagel-admin"
+description            = "Admin control protocol and client for the Bagel daemon"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+authors.workspace      = true
+
+[dependencies]
+serde.workspace      = true
+serde_json.workspace = true
+tokio.workspace      = true
+
+[lints]
+workspace = true

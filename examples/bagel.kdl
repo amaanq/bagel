@@ -1,0 +1,30 @@
+bind { address ":8080" }
+
+client-ip-header "x-forwarded-for"
+
+trusted-proxies "10.0.0.0/8"
+
+deception { server "nginx/1.24.0" }
+
+smear { min-delay-ms 1000; max-delay-ms 15000; chunk-min 64; chunk-max 1400 }
+
+backends { backend "*" { url "http://127.0.0.1:8081" } }
+
+policy {
+    rules {
+        rule "probe" condition=#"path == "/.env""# action="smear"
+        rule "drop" condition=#"path == "/drop""# action="drop"
+    }
+}
+
+defense {
+    metrics-addr "127.0.0.1:9100"
+    enforcement mode="required"
+    sources { source "web" kind="web" }
+    policies {
+        policy "web-probes" source="web" max-attempts=1 findtime-secs=600 {
+            detector kind="json" address-pointer="/address" { equals "/kind" "smear" }
+            action kind="drop-all"
+        }
+    }
+}

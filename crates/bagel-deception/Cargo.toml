@@ -1,0 +1,15 @@
+[package]
+name                   = "bagel-deception"
+description            = "Deceptive response generation for Bagel: Markov chains and rhai"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+authors.workspace      = true
+
+[dependencies]
+rand.workspace    = true
+rhai.workspace    = true
+tracing.workspace = true
+
+[lints]
+workspace = true

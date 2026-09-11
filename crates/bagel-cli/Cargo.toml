@@ -1,0 +1,22 @@
+[package]
+name                   = "bagel-cli"
+description            = "Admin CLI for the Bagel tarpit daemon"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+authors.workspace      = true
+
+[[bin]]
+name = "bagel"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace      = true
+bagel-admin.workspace = true
+bagel-core.workspace  = true
+pound.workspace       = true
+serde_json.workspace  = true
+tokio.workspace       = true
+
+[lints]
+workspace = true

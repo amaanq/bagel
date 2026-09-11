@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: EUPL-1.2
+
 {
   mkShell,
   rustc,
@@ -7,10 +9,15 @@
   rustfmt,
   clippy,
   openssl,
-}: mkShell {
-  name = "eris";
+  sqlite,
+  rustPlatform,
+  extraPackages ? [ ],
+}:
+mkShell {
+  name = "bagel";
 
   strictDeps = true;
+
   nativeBuildInputs = [
     rustc
     cargo
@@ -18,6 +25,13 @@
     rust-analyzer
     rustfmt
     clippy
+  ]
+  ++ extraPackages;
+
+  buildInputs = [
+    openssl.dev
+    sqlite.dev
   ];
-  buildInputs = [openssl.dev];
+
+  env.RUST_SRC_PATH = "${rustPlatform.rustLibSrc}";
 }

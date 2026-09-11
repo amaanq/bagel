@@ -1,8 +1,111 @@
-# eris
+# bagel
 
-Eris is an HTTP proxy and SSH tarpit daemon that delays malicious scanners. It
+Bagel is an HTTP proxy and SSH tarpit daemon that delays malicious scanners. It
 reads configured evidence sources, applies durable escalation policies, and can
-enforce bans through nftables.
+enforce bans through nftables. Its HTTP data plane adds a KDL rule engine with
+rhai conditions, scorecards, challenges, mazes, crawler verification and paced
+deception pages, and every hostile verdict it makes feeds the same escalation
+policies.
+
+## Why bagel
+
+The project can be thought of as individual components that make up a bagel.
+
+To start off, the HTTP plane is the counter. It sizes up each request and either
+serves it, stalls it, or turns it away. Verified crawlers and allowlisted ranges
+go through the hole and reach the backend untouched.
+
+- The **schmear** is `smear`, a deceptive body written out slowly. It's spread
+  thin, so `max-concurrent` runs out under load and the rest degrade to a drop.
+- The **lox** is `tarpit`, sliced thin and served one piece at a time until
+  `max-secs` expires.
+- The **dough** is `deception`. Point `corpora` at some text and the markov
+  generator produces as much filler as the maze asks for.
+- The **seeds** are the trap paths, scattered over the surface and sticking to
+  whatever touches them. Rules reach them through `trap["path"]`.
+- The **kettle** is `maze`. Bagels are boiled before they're baked, and a crawler
+  that walks into a generated page tree goes round in hot water for about as long.
+
+`enforcement mode="required"` is an everything bagel. `mode="observe"` is a plain
+one that only watches.
+
+## Configuration
+
+One KDL file configures both planes. The web nodes sit at the top level and the
+defense plane lives under `defense { }`, so a small deployment fits on one
+screen, see `examples/bagel.kdl`. `bagel config example` prints a starting
+point, `bagel-daemon --config bagel.kdl` starts the daemon, and adding
+`--check-config` validates the file without starting anything. The policy
+surface itself, meaning rules, scoring, condition bindings, mazes and
+renderers, is described in [docs/policy.md](docs/policy.md), and the key and
+token design underneath mazes in [docs/maze.md](docs/maze.md).
+
+Every section is typed, so an unknown field, an extra argument, a repeated
+singleton child or a wrongly typed scalar is a load error rather than something
+quietly ignored. Web rules keep their ordered child overrides while defense
+singleton children reject duplicates, and `policy-dir` merges KDL snippets in
+filename order with the same strictness, so an unreadable directory, a
+malformed snippet or an unknown policy entry stops loading. Backend header
+names and values are validated before a single request is served.
+
+Durations are written `"60s"`, `"30m"`, `"24h"` or `"7d"`. Network filters are
+`filter="jq" jq=".."` or `filter="regex" regex=".."`, and a named condition is
+`condition "name" expr=".."`. Rhai goes in a KDL raw string,
+`condition=#"path == "/x""#`, or in the multi-line `#"""` form with one `||`
+per line, which the parser dedents to the closing line. The optional `(rhai)`
+annotation says what the payload is and rejects misspellings.
+
+Mazes need a persistent key. Generate it once with `bagel-daemon
+--generate-key`, then supply it through `--key-seed-file`, or
+`services.bagel.keySeedFile` on NixOS. Keep the file private and keep it across
+restarts, because rotating it invalidates every outstanding maze URL and
+challenge cookie.
+
+Two rule features tie the planes together. `action="report" kind="tarball"`
+emits a web offense whose `/kind` is the configured label and then continues to
+the next rule, so a defense policy with a `json` detector on
+`equals "/kind" "tarball"` can count those per address inside its
+`findtime-secs` and put the client on the escalation ladder, and
+`group-key-pointer="/group_key"` keeps a separate window for each repository a
+rule reports. In the other direction, `lease["active"]` is true while the
+client address holds an active non-observe lease, so a rule placed first can
+`deny` or `tarpit` it at the web layer. That's what makes the ladder useful
+behind a CDN, where a kernel drop never reaches the client.
+
+A `check` rule proves a client without an interstitial, by splicing the
+challenge into the proxied page instead of replacing it. `embed="hidden"`, the
+default, delivers only the solver, and `embed="card"` also draws the usual
+card. An embedded card ships inside a shadow root carrying its own stylesheet,
+so neither the origin's CSS nor bagel's can reach the other, and every custom
+property is prefixed because those do inherit across the boundary. bagel
+appends the widget to the end of the response, so an origin that wants to place
+it somewhere specific can put an empty `<div id="bagel-challenge">` in its own
+markup and the widget moves there. Either way the page stays usable while the
+proof runs and settles in place rather than reloading. The stylesheet is also
+served on its own at `/__bagel/static/widget.css`.
+
+ACME needs a build with the `bagel-daemon` crate's `acme` feature and a TCP
+listener, and an ACME configuration the build can't honor fails validation
+rather than falling back to plaintext. Crawler verification by
+forward-confirmed reverse DNS needs the `fcrdns` feature, which is on by
+default. Turning it off drops the DNS resolver and about 1.3 MB with it, and a
+`crawlers` block in such a build fails validation rather than waving every
+claimed crawler through as verified. The static `verified-crawlers` ranges work
+in either build and need no DNS. Upstream proxy connections are HTTP only for
+now, and both binaries parse their command line with Pound rather than Clap.
+
+## Reload and shutdown
+
+SIGHUP reloads the web policy and carries signing keys, rate counters and
+poison memory across the reload. Defense configuration and bound
+listener or TLS settings need a restart, and a rejected configuration leaves
+the running one in place.
+
+Shutdown closes defense record intake first and drains whatever was already
+accepted into the queue, with `drain-timeout-secs` still bounding the whole
+thing. Records emitted after intake closes are rejected. The queue stays
+bounded in normal operation, and any web records it had to drop show up in
+`bagel_offenses_total{result="dropped"}`.
 
 ## Development
 
@@ -11,5 +114,18 @@ enforce bans through nftables.
 $ nix develop
 
 # Run the workspace tests.
-$ cargo test --workspace
+$ cargo test --locked --workspace --all-features
+$ cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+$ nix flake check
 ```
+
+The Nix checks build the package and validate the installed example. They also
+exercise the NixOS module's maze config check both with and without a
+configured key seed. None of them start a service or touch the host firewall.
+
+Formatting needs a nightly `rustfmt`, since `.rustfmt.toml` sets nightly-only
+options. The Nix devshell supplies one.
+
+## License
+
+EUPL-1.2, see [LICENSE](LICENSE).

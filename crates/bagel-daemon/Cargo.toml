@@ -1,0 +1,32 @@
+[package]
+name                   = "bagel-daemon"
+description.workspace  = true
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+authors.workspace      = true
+
+[[bin]]
+name = "bagel-daemon"
+path = "src/main.rs"
+
+[features]
+acme    = [ "bagel-web/acme" ]
+default = [ "fcrdns" ]
+fcrdns  = [ "bagel-web/fcrdns" ]
+
+[dependencies]
+anyhow.workspace                      = true
+bagel-config.workspace                = true
+bagel-proto.workspace                 = true
+bagel-runtime.workspace               = true
+bagel-web.workspace                   = true
+metrics.workspace                     = true
+metrics-exporter-prometheus.workspace = true
+tokio.workspace                       = true
+tokio-util.workspace                  = true
+tracing.workspace                     = true
+tracing-subscriber.workspace          = true
+
+[lints]
+workspace = true

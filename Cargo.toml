@@ -1,59 +1,143 @@
 [workspace]
-resolver = "3"
 members  = [ "crates/*" ]
+resolver = "3"
 
 [workspace.package]
-version      = "2.0.2"
-edition      = "2024"
-rust-version = "1.91.0"
-authors      = [ "NotAShelf <raf@notashelf.dev>" ]
+authors      = [ "Amaan Qureshi <contact@amaanq.com>", "NotAShelf <raf@notashelf.dev>" ]
 description  = "HTTP proxy and SSH tarpit daemon that delays malicious scanners"
+edition      = "2024"
+rust-version = "1.97.1"
+version      = "1.0.0"
 
 [workspace.dependencies]
-# Internal crates
-eris-core      = { path = "crates/eris-core" }
-eris-config    = { path = "crates/eris-config" }
-eris-proto     = { path = "crates/eris-proto" }
-eris-deception = { path = "crates/eris-deception" }
-eris-admin     = { path = "crates/eris-admin" }
-eris-runtime   = { path = "crates/eris-runtime" }
+anyhow                      = "1.0.104"
+arc-swap                    = "1.9.2"
+bytes                       = "1.12.1"
+constant_time_eq            = "0.6.0"
+dashmap                     = "6.2.1"
+data-encoding               = "2.11.1"
+etcetera                    = "0.11.0"
+flate2                      = "1.1.10"
+futures                     = "0.3.34"
+hickory-resolver            = "0.26.3"
+http                        = "1.5.0"
+http-body                   = "1.1.0"
+http-body-util              = "0.1.5"
+httparse                    = "1.10.1"
+hyper                       = { features = [ "http1", "http2", "server", "client" ], version = "1.11.1" }
+hyper-rustls                = { default-features = false, features = [ "http1", "native-tokio", "tls12", "ring" ], version = "0.27.9" }
+hyper-util                  = { features = [ "tokio", "http1", "http2", "server", "client", "client-legacy" ], version = "0.1.20" }
+ip_network                  = "0.4.1"
+ip_network_table            = "0.2.0"
+ipnetwork                   = "0.21.1"
+jiff                        = { default-features = false, features = [ "std", "tz-system", "tzdb-zoneinfo" ], version = "0.2.35" }
+knead                       = "0.1.0"
+knead-derive                = "0.1.0"
+libc                        = "0.2.189"
+maud                        = "0.27.0"
+metrics                     = "0.24.6"
+metrics-exporter-prometheus = { default-features = false, version = "0.18.3" }
+parking_lot                 = "0.12.5"
+pin-project-lite            = "0.2.17"
+pound                       = "0.1.6"
+ppp                         = "2.3.0"
+rand                        = "0.10.2"
+regex                       = { default-features = false, features = [ "perf", "std", "unicode-case", "unicode-perl" ], version = "1.13.1" }
+rhai                        = { features = [ "sync", "only_i64", "no_float", "no_custom_syntax", "no_time", "no_module" ], version = "1.26.1" }
+ring                        = "0.17.14"
+rusqlite                    = "0.40.2"
+rustls                      = { default-features = false, features = [ "ring", "logging", "std", "tls12" ], version = "0.23.44" }
+rustls-acme                 = { default-features = false, features = [ "ring", "webpki-roots" ], version = "0.15.4" }
+rustls-pemfile              = "2.2.0"
+serde                       = { features = [ "derive" ], version = "1.0.229" }
+serde_json                  = "1.0.151"
+socket2                     = "0.6.5"
+thiserror                   = "2.0.20"
+tokio                       = { features = [ "rt-multi-thread", "macros", "net", "io-util", "time", "sync", "signal", "process", "fs" ], version = "1.53.1" }
+tokio-rustls                = { default-features = false, features = [ "ring", "logging", "tls12" ], version = "0.26.5" }
+tokio-util                  = { features = [ "rt" ], version = "0.7.19" }
+tower-service               = "0.3.3"
+tracing                     = "0.1.44"
+tracing-subscriber          = { default-features = false, features = [ "env-filter", "fmt", "smallvec", "std", "tracing-log" ], version = "0.3.23" }
 
-# External
-tokio = { version = "1.53.1", features = [
-    "rt-multi-thread",
-    "macros",
-    "net",
-    "io-util",
-    "time",
-    "sync",
-    "signal",
-    "process",
-    "fs",
-] }
-tokio-util = { version = "0.7.19", features = [ "rt" ] }
-httparse = "1.10.1"
-ppp = "2.3.0"
-clap = { version = "4.6.6", features = [ "derive", "env" ] }
-serde = { version = "1.0.229", features = [ "derive" ] }
-serde_json = "1.0.151"
-regex = "1.13.1"
-ipnetwork = "0.21.1"
-jiff = "0.2.35"
-libc = "0.2.189"
-rand = "0.10.2"
-rusqlite = { version = "0.40.2", features = [ "bundled" ] }
-markov = "1.1.0"
-mlua = { version = "0.12.0", features = [ "lua54", "vendored", "send" ] }
-prometheus = "0.14.0"
-directories = "6.0.0"
-dashmap = "6.2.1"
-parking_lot = "0.12.5"
-anyhow = "1.0.104"
-thiserror = "2.0.20"
-log = "0.4.34"
-env_logger = "0.11.11"
+bagel-admin     = { path = "crates/bagel-admin" }
+bagel-config    = { path = "crates/bagel-config" }
+bagel-core      = { path = "crates/bagel-core" }
+bagel-deception = { path = "crates/bagel-deception" }
+bagel-proto     = { path = "crates/bagel-proto" }
+bagel-runtime   = { path = "crates/bagel-runtime" }
+bagel-traps     = { path = "crates/bagel-traps" }
+bagel-web       = { path = "crates/bagel-web" }
 
 [profile.release]
 codegen-units = 1
 lto           = "thin"
 strip         = true
+
+[workspace.lints.clippy]
+cargo    = { level = "warn", priority = -1 }
+nursery  = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+
+blanket_clippy_restriction_lints = "allow"
+restriction                      = { level = "warn", priority = -1 }
+
+cargo_common_metadata = "allow"
+
+absolute_paths                  = "allow"
+allow_attributes                = "allow"
+allow_attributes_without_reason = "allow"
+arbitrary_source_item_ordering  = "allow"
+arithmetic_side_effects         = "allow"
+as_conversions                  = "allow"
+big_endian_bytes                = "allow"
+cast_possible_truncation        = "allow"
+cast_possible_wrap              = "allow"
+cognitive_complexity            = "allow"
+decimal_literal_representation  = "allow"
+default_numeric_fallback        = "allow"
+else_if_without_else            = "allow"
+error_impl_error                = "allow"
+exhaustive_enums                = "allow"
+exhaustive_structs              = "allow"
+expect_used                     = "allow"
+implicit_return                 = "allow"
+indexing_slicing                = "allow"
+inline_modules                  = "allow"
+inline_trait_bounds             = "allow"
+integer_division                = "allow"
+integer_division_remainder_used = "allow"
+let_underscore_must_use         = "allow"
+let_underscore_untyped          = "allow"
+little_endian_bytes             = "allow"
+map_err_ignore                  = "allow"
+min_ident_chars                 = "allow"
+missing_docs_in_private_items   = "allow"
+missing_errors_doc              = "allow"
+missing_inline_in_public_items  = "allow"
+missing_panics_doc              = "allow"
+missing_trait_methods           = "allow"
+mod_module_files                = "allow"
+module_name_repetitions         = "allow"
+multiple_crate_versions         = "allow"
+needless_raw_strings            = "allow"
+pattern_type_mismatch           = "allow"
+pub_use                         = "allow"
+pub_with_shorthand              = "allow"
+question_mark_used              = "allow"
+ref_patterns                    = "allow"
+result_large_err                = "allow"
+separated_literal_suffix        = "allow"
+shadow_reuse                    = "allow"
+shadow_unrelated                = "allow"
+significant_drop_tightening     = "allow"
+single_call_fn                  = "allow"
+single_char_lifetime_names      = "allow"
+std_instead_of_alloc            = "allow"
+std_instead_of_core             = "allow"
+string_slice                    = "allow"
+too_many_lines                  = "allow"
+unused_trait_names              = "allow"
+unseparated_literal_suffix      = "allow"
+unwrap_used                     = "allow"
+wildcard_enum_match_arm         = "allow"

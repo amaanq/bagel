@@ -1,0 +1,76 @@
+[package]
+name                   = "bagel-web"
+description            = "Bagel HTTP data plane: rules, scoring, challenges, mazes, crawler verification"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+authors.workspace      = true
+
+[features]
+acme    = [ "dep:rustls-acme", "dep:futures" ]
+default = [ "fcrdns" ]
+fcrdns  = [ "dep:hickory-resolver" ]
+
+[dependencies]
+bagel-config.workspace    = true
+bagel-core.workspace      = true
+bagel-deception.workspace = true
+bagel-proto.workspace     = true
+bagel-runtime.workspace   = true
+bagel-traps.workspace     = true
+ipnetwork.workspace       = true
+
+# HTTP
+http.workspace           = true
+http-body.workspace      = true
+http-body-util.workspace = true
+hyper.workspace          = true
+hyper-util.workspace     = true
+tokio.workspace          = true
+tokio-util.workspace     = true
+
+# TLS
+rustls.workspace         = true
+rustls-pemfile.workspace = true
+tokio-rustls.workspace   = true
+
+# Expressions
+rhai.workspace = true
+
+# Crypto
+constant_time_eq.workspace = true
+ring.workspace             = true
+
+# JWT + serialization
+data-encoding.workspace = true
+flate2.workspace        = true
+serde.workspace         = true
+serde_json.workspace    = true
+
+# Networking
+hickory-resolver           = { optional = true, workspace = true }
+hyper-rustls.workspace     = true
+ip_network.workspace       = true
+ip_network_table.workspace = true
+socket2.workspace          = true
+
+# Metrics
+metrics.workspace = true
+
+# Templates
+maud.workspace = true
+
+# ACME (optional)
+futures     = { optional = true, workspace = true }
+rustls-acme = { optional = true, workspace = true }
+
+# Utilities
+arc-swap.workspace         = true
+bytes.workspace            = true
+pin-project-lite.workspace = true
+regex.workspace            = true
+tower-service.workspace    = true
+tracing.workspace          = true
+
+[lints]
+workspace = true

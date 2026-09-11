@@ -1,0 +1,17 @@
+[package]
+name                   = "bagel-proto"
+description            = "Protocol parsing for Bagel: HTTP heads, PROXY protocol, real client IP"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+authors.workspace      = true
+
+[dependencies]
+bagel-core.workspace = true
+httparse.workspace   = true
+ipnetwork.workspace  = true
+ppp.workspace        = true
+tokio.workspace      = true
+
+[lints]
+workspace = true

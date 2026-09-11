@@ -1,0 +1,151 @@
+/* Custom properties inherit across a shadow boundary, so every name here is
+   prefixed to survive embedding in a page that sets its own. */
+.bagel-widget {
+  --bagel-fg: #ebdbb2;
+  --bagel-bg: #282828;
+  --bagel-accent: #458588;
+  --bagel-card-bg: #3c3836;
+  --bagel-border: #504945;
+  --bagel-error: #cc241d;
+
+  --bagel-font: system-ui, -apple-system, sans-serif;
+  --bagel-radius: 8px;
+  --bagel-width: 480px;
+  --bagel-pad: 2rem;
+  --bagel-gap: 1rem;
+
+  --bagel-title-size: 1.5rem;
+  --bagel-title-color: var(--bagel-accent);
+  --bagel-text-size: 1rem;
+  --bagel-line-height: 1.5;
+  --bagel-code-size: 3rem;
+  --bagel-detail-size: 0.85rem;
+  --bagel-detail-opacity: 0.7;
+
+  --bagel-logo-height: 48px;
+  --bagel-spinner-size: 40px;
+  --bagel-spinner-width: 4px;
+  --bagel-spinner-speed: 1s;
+
+  --bagel-link-size: 0.85rem;
+  --bagel-link-gap: 0.5rem;
+  --bagel-link-color: var(--bagel-accent);
+
+  display: block;
+  font-family: var(--bagel-font);
+  color: var(--bagel-fg);
+}
+
+@media (prefers-color-scheme: light) {
+  .bagel-widget {
+    --bagel-fg: #3c3836;
+    --bagel-bg: #fbf1c7;
+    --bagel-accent: #076678;
+    --bagel-card-bg: #f2e5bc;
+    --bagel-border: #d5c4a1;
+    --bagel-error: #9d0006;
+  }
+}
+
+.bagel-widget[data-theme="minimal"] {
+  --bagel-fg: #333;
+  --bagel-bg: #fff;
+  --bagel-accent: #333;
+  --bagel-card-bg: transparent;
+  --bagel-border: #ddd;
+  --bagel-error: #c00;
+
+  --bagel-radius: 4px;
+  --bagel-width: 420px;
+  --bagel-gap: 0.75rem;
+
+  --bagel-title-size: 1.25rem;
+  --bagel-title-color: var(--bagel-fg);
+  --bagel-text-size: 0.95rem;
+  --bagel-line-height: 1.4;
+  --bagel-code-size: 2.5rem;
+  --bagel-detail-size: 0.8rem;
+  --bagel-detail-opacity: 0.6;
+
+  --bagel-logo-height: 40px;
+  --bagel-spinner-size: 32px;
+  --bagel-spinner-width: 3px;
+  --bagel-spinner-speed: 0.8s;
+
+  --bagel-link-size: 0.8rem;
+  --bagel-link-gap: 0.4rem;
+  --bagel-link-color: #06c;
+}
+
+.bagel-widget .card {
+  background: var(--bagel-card-bg);
+  border: 1px solid var(--bagel-border);
+  border-radius: var(--bagel-radius);
+  padding: var(--bagel-pad);
+  max-width: var(--bagel-width);
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.bagel-widget h1 {
+  font-size: var(--bagel-title-size);
+  color: var(--bagel-title-color);
+  margin: 0 0 var(--bagel-gap);
+}
+
+.bagel-widget p {
+  font-size: var(--bagel-text-size);
+  line-height: var(--bagel-line-height);
+  margin: 0 0 var(--bagel-gap);
+}
+
+.bagel-widget .detail {
+  font-size: var(--bagel-detail-size);
+  opacity: var(--bagel-detail-opacity);
+}
+
+.bagel-widget .logo {
+  max-height: var(--bagel-logo-height);
+  margin-bottom: var(--bagel-gap);
+}
+
+.bagel-widget .spinner {
+  width: var(--bagel-spinner-size);
+  height: var(--bagel-spinner-size);
+  margin: var(--bagel-gap) auto;
+  border: var(--bagel-spinner-width) solid var(--bagel-border);
+  border-top-color: var(--bagel-accent);
+  border-radius: 50%;
+  animation: bagel-spin var(--bagel-spinner-speed) linear infinite;
+}
+
+@keyframes bagel-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.bagel-widget noscript {
+  display: block;
+  margin-top: var(--bagel-gap);
+  color: var(--bagel-error);
+}
+
+.bagel-widget .links {
+  margin-top: calc(var(--bagel-gap) * 1.5);
+  font-size: var(--bagel-link-size);
+}
+
+.bagel-widget .links a {
+  color: var(--bagel-link-color);
+  text-decoration: none;
+  margin: 0 var(--bagel-link-gap);
+}
+
+.bagel-widget .code {
+  font-size: var(--bagel-code-size);
+  font-weight: bold;
+  color: var(--bagel-error);
+  margin: var(--bagel-gap) 0;
+}
