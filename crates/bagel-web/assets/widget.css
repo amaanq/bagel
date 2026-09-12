@@ -1,5 +1,22 @@
-/* Custom properties inherit across a shadow boundary, so every name here is
-   prefixed to survive embedding in a page that sets its own. */
+/* Bagel challenge widget.
+ *
+ * Custom properties inherit across a shadow boundary, so every name here is
+ * prefixed to survive embedding in a page that sets its own.
+ *
+ * Themable: an operator can restyle the card from the outer page without
+ * touching this file, e.g.
+ *
+ *   bagel-challenge {
+ *     --bagel-accent: #b16286;
+ *     --bagel-card-bg: #1d2021;
+ *     --bagel-radius: 12px;
+ *   }
+ *
+ * Motion uses only compositor-friendly properties (opacity, transform,
+ * filter, scale) with `cubic-bezier(0.2, 0, 0, 1)`. Interactive state
+ * changes are CSS transitions so they interrupt cleanly; the one-shot
+ * entrance is keyframes with a ~100ms stagger.
+ */
 .bagel-widget {
   --bagel-fg: #ebdbb2;
   --bagel-bg: #282828;
@@ -8,9 +25,10 @@
   --bagel-border: #504945;
   --bagel-error: #cc241d;
 
-  --bagel-font: system-ui, -apple-system, sans-serif;
-  --bagel-radius: 8px;
-  --bagel-width: 480px;
+  --bagel-font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --bagel-radius: 12px;
+  --bagel-radius-sm: 8px;
+  --bagel-width: 30rem;
   --bagel-pad: 2rem;
   --bagel-gap: 1rem;
 
@@ -22,8 +40,8 @@
   --bagel-detail-size: 0.85rem;
   --bagel-detail-opacity: 0.7;
 
-  --bagel-logo-height: 48px;
-  --bagel-spinner-size: 40px;
+  --bagel-logo-height: 3rem;
+  --bagel-spinner-size: 2.5rem;
   --bagel-spinner-width: 4px;
   --bagel-spinner-speed: 1s;
 
@@ -31,9 +49,24 @@
   --bagel-link-gap: 0.5rem;
   --bagel-link-color: var(--bagel-accent);
 
+  /* Depth: layered transparent shadows adapt to any background, while the
+     1px border below keeps structure. Never a tinted solid "shadow". */
+  --bagel-shadow:
+    0 1px 2px -1px oklch(0 0 0 / 0.3),
+    0 8px 24px -8px oklch(0 0 0 / 0.45);
+  --bagel-shadow-hover:
+    0 1px 2px -1px oklch(0 0 0 / 0.35),
+    0 12px 32px -8px oklch(0 0 0 / 0.5);
+
+  --bagel-ease: cubic-bezier(0.2, 0, 0, 1);
+  --bagel-dur-fast: 150ms;
+  --bagel-dur-enter: 400ms;
+
   display: block;
   font-family: var(--bagel-font);
   color: var(--bagel-fg);
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
 }
 
 @media (prefers-color-scheme: light) {
@@ -44,6 +77,17 @@
     --bagel-card-bg: #f2e5bc;
     --bagel-border: #d5c4a1;
     --bagel-error: #9d0006;
+
+    --bagel-shadow:
+      0 0 0 1px oklch(0 0 0 / 0.06),
+      0 1px 2px -1px oklch(0 0 0 / 0.06),
+      0 2px 4px 0 oklch(0 0 0 / 0.04);
+    --bagel-shadow-hover:
+      0 0 0 1px oklch(0 0 0 / 0.08),
+      0 1px 2px -1px oklch(0 0 0 / 0.08),
+      0 2px 4px 0 oklch(0 0 0 / 0.06);
+
+    color-scheme: light;
   }
 }
 
@@ -51,12 +95,13 @@
   --bagel-fg: #333;
   --bagel-bg: #fff;
   --bagel-accent: #333;
-  --bagel-card-bg: transparent;
+  --bagel-card-bg: #fff;
   --bagel-border: #ddd;
   --bagel-error: #c00;
 
-  --bagel-radius: 4px;
-  --bagel-width: 420px;
+  --bagel-radius: 6px;
+  --bagel-radius-sm: 4px;
+  --bagel-width: 26.25rem;
   --bagel-gap: 0.75rem;
 
   --bagel-title-size: 1.25rem;
@@ -67,20 +112,37 @@
   --bagel-detail-size: 0.8rem;
   --bagel-detail-opacity: 0.6;
 
-  --bagel-logo-height: 40px;
-  --bagel-spinner-size: 32px;
+  --bagel-logo-height: 2.5rem;
+  --bagel-spinner-size: 2rem;
   --bagel-spinner-width: 3px;
   --bagel-spinner-speed: 0.8s;
 
   --bagel-link-size: 0.8rem;
   --bagel-link-gap: 0.4rem;
   --bagel-link-color: #06c;
+
+  --bagel-shadow:
+    0 0 0 1px oklch(0 0 0 / 0.06),
+    0 1px 2px -1px oklch(0 0 0 / 0.06),
+    0 2px 4px 0 oklch(0 0 0 / 0.04);
+  --bagel-shadow-hover:
+    0 0 0 1px oklch(0 0 0 / 0.08),
+    0 1px 2px -1px oklch(0 0 0 / 0.08),
+    0 2px 4px 0 oklch(0 0 0 / 0.06);
+
+  color-scheme: light;
+}
+
+/* Hidden embeds carry only machinery; never take space. */
+bagel-challenge[hidden] {
+  display: none !important;
 }
 
 .bagel-widget .card {
   background: var(--bagel-card-bg);
   border: 1px solid var(--bagel-border);
   border-radius: var(--bagel-radius);
+  box-shadow: var(--bagel-shadow);
   padding: var(--bagel-pad);
   max-width: var(--bagel-width);
   width: 100%;
@@ -88,8 +150,17 @@
   box-sizing: border-box;
 }
 
+@media (max-width: 30rem) {
+  .bagel-widget {
+    --bagel-pad: 1.5rem;
+  }
+}
+
 .bagel-widget h1 {
   font-size: var(--bagel-title-size);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
   color: var(--bagel-title-color);
   margin: 0 0 var(--bagel-gap);
 }
@@ -97,6 +168,7 @@
 .bagel-widget p {
   font-size: var(--bagel-text-size);
   line-height: var(--bagel-line-height);
+  text-wrap: pretty;
   margin: 0 0 var(--bagel-gap);
 }
 
@@ -105,9 +177,31 @@
   opacity: var(--bagel-detail-opacity);
 }
 
+/* Fixed minimum height so the solver's progress text never shifts layout. */
+.bagel-widget .bagel-status {
+  min-height: calc(var(--bagel-text-size) * var(--bagel-line-height));
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
 .bagel-widget .logo {
+  max-width: 100%;
   max-height: var(--bagel-logo-height);
+  height: auto;
   margin-bottom: var(--bagel-gap);
+  border-radius: var(--bagel-radius-sm);
+  outline: 1px solid oklch(1 0 0 / 0.1);
+  outline-offset: -1px;
+}
+
+@media (prefers-color-scheme: light) {
+  .bagel-widget .logo {
+    outline-color: oklch(0 0 0 / 0.1);
+  }
+}
+
+.bagel-widget[data-theme="minimal"] .logo {
+  outline-color: oklch(0 0 0 / 0.1);
 }
 
 .bagel-widget .spinner {
@@ -117,12 +211,49 @@
   border: var(--bagel-spinner-width) solid var(--bagel-border);
   border-top-color: var(--bagel-accent);
   border-radius: 50%;
+  box-sizing: border-box;
   animation: bagel-spin var(--bagel-spinner-speed) linear infinite;
 }
 
 @keyframes bagel-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* One-shot staged entrance: infrequent page load only, staggered ~100ms so
+   hierarchy reads top-down. Compositor properties only. */
+.bagel-widget .card > * {
+  animation: bagel-enter var(--bagel-dur-enter) var(--bagel-ease) both;
+}
+
+.bagel-widget .card > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+
+.bagel-widget .card > *:nth-child(2) {
+  animation-delay: 100ms;
+}
+
+.bagel-widget .card > *:nth-child(3) {
+  animation-delay: 200ms;
+}
+
+.bagel-widget .card > *:nth-child(n + 4) {
+  animation-delay: 300ms;
+}
+
+@keyframes bagel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+    filter: blur(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
   }
 }
 
@@ -138,14 +269,55 @@
 }
 
 .bagel-widget .links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--bagel-radius-sm);
   color: var(--bagel-link-color);
   text-decoration: none;
-  margin: 0 var(--bagel-link-gap);
+  transition-property: color, background-color, scale, opacity;
+  transition-duration: var(--bagel-dur-fast);
+  transition-timing-function: var(--bagel-ease);
+}
+
+.bagel-widget .links a + a {
+  margin-inline-start: var(--bagel-link-gap);
+}
+
+.bagel-widget .links a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.bagel-widget .links a:focus-visible {
+  outline: 2px solid var(--bagel-accent);
+  outline-offset: 2px;
+}
+
+.bagel-widget .links a:active {
+  scale: 0.96;
 }
 
 .bagel-widget .code {
   font-size: var(--bagel-code-size);
-  font-weight: bold;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
   color: var(--bagel-error);
   margin: var(--bagel-gap) 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bagel-widget .card > * {
+    animation: none;
+  }
+
+  .bagel-widget .spinner {
+    animation: none;
+    border-top-color: var(--bagel-border);
+  }
+
+  .bagel-widget .links a {
+    transition: none;
+  }
 }
