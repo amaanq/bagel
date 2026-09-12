@@ -50,6 +50,7 @@ pub struct LinkConfig {
 }
 
 /// One validated `challenge-template` override, e.g. `accent "#b16286"`.
+///
 /// Values are restricted at load so rendering them into a `style` attribute
 /// cannot smuggle extra declarations: colors must be hex, lengths must be
 /// plain, and the font stack may not contain declaration-breaking characters.
@@ -60,6 +61,7 @@ pub struct ThemeVar {
 }
 
 /// Operator theme overrides, applied on top of `challenge-template-theme`.
+///
 /// Every name is one of the properties `CustomTheme::validate` accepts;
 /// anything else is a load error rather than something quietly ignored.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -69,7 +71,7 @@ pub struct CustomTheme {
 
 impl CustomTheme {
    #[must_use]
-   pub fn is_empty(&self) -> bool {
+   pub const fn is_empty(&self) -> bool {
       self.vars.is_empty()
    }
 
@@ -137,10 +139,9 @@ fn is_css_length(value: &str) -> bool {
    let mut parts = number.split('.');
    let whole = parts.next().unwrap_or("");
    let valid_whole = !whole.is_empty() && whole.bytes().all(|byte| byte.is_ascii_digit());
-   let valid_fraction = match parts.next() {
-      None => true,
-      Some(fraction) => !fraction.is_empty() && fraction.bytes().all(|byte| byte.is_ascii_digit()),
-   };
+   let valid_fraction = parts.next().is_none_or(|fraction| {
+      !fraction.is_empty() && fraction.bytes().all(|byte| byte.is_ascii_digit())
+   });
    valid_whole && valid_fraction && parts.next().is_none()
 }
 
@@ -518,10 +519,10 @@ mod tests {
 
    #[test]
    fn custom_theme_rejects_unknown_property() {
-      let err = match parse("challenge-template { watermark \"x\" }") {
-         Ok(_) => panic!("unknown theme properties must be rejected"),
-         Err(err) => err.to_string(),
-      };
+      let err = parse("challenge-template { watermark \"x\" }")
+         .err()
+         .expect("unknown theme properties must be rejected")
+         .to_string();
       assert!(err.contains("unknown property"), "{err}");
    }
 
@@ -538,10 +539,10 @@ mod tests {
          ("font", "url(x)"),
          ("color-scheme", "auto"),
       ] {
-         let err = match parse(&format!("challenge-template {{ {name} \"{value}\" }}")) {
-            Ok(_) => panic!("{name}={value} must be rejected"),
-            Err(err) => err.to_string(),
-         };
+         let err = parse(&format!("challenge-template {{ {name} \"{value}\" }}"))
+            .err()
+            .expect("invalid theme values must be rejected")
+            .to_string();
          assert!(err.contains("invalid value"), "{name}={value}: {err}");
       }
    }

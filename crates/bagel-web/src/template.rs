@@ -209,8 +209,8 @@ pub fn render_document(theme: Theme, custom: &CustomTheme, page: &ChallengePage<
             meta charset="utf-8";
             meta name="viewport" content="width=device-width, initial-scale=1";
             meta name="color-scheme" content=(custom.get("color-scheme").unwrap_or("light dark"));
-            meta name="theme-color" media="(prefers-color-scheme: light)" content=(custom.get("bg").unwrap_or(theme.light_theme_color()));
-            meta name="theme-color" media="(prefers-color-scheme: dark)" content=(custom.get("bg").unwrap_or(theme.dark_theme_color()));
+            meta name="theme-color" media="(prefers-color-scheme: light)" content=(custom.get("bg").unwrap_or_else(|| theme.light_theme_color()));
+            meta name="theme-color" media="(prefers-color-scheme: dark)" content=(custom.get("bg").unwrap_or_else(|| theme.dark_theme_color()));
             title { (page.title) }
             style { (PreEscaped(DOCUMENT_CSS)) (PreEscaped(WIDGET_CSS)) }
             (render_tags("meta", &page.meta_tags))
@@ -287,8 +287,8 @@ pub fn render_error(
             meta charset="utf-8";
             meta name="viewport" content="width=device-width, initial-scale=1";
             meta name="color-scheme" content=(custom.get("color-scheme").unwrap_or("light dark"));
-            meta name="theme-color" media="(prefers-color-scheme: light)" content=(custom.get("bg").unwrap_or(theme.light_theme_color()));
-            meta name="theme-color" media="(prefers-color-scheme: dark)" content=(custom.get("bg").unwrap_or(theme.dark_theme_color()));
+            meta name="theme-color" media="(prefers-color-scheme: light)" content=(custom.get("bg").unwrap_or_else(|| theme.light_theme_color()));
+            meta name="theme-color" media="(prefers-color-scheme: dark)" content=(custom.get("bg").unwrap_or_else(|| theme.dark_theme_color()));
             title { (title) }
             style { (PreEscaped(DOCUMENT_CSS)) (PreEscaped(WIDGET_CSS)) }
          }
