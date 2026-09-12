@@ -101,6 +101,7 @@ pub async fn handle_request(shared: &SharedState, addr: SocketAddr, mut req: Req
       tracing::debug!(host, "no backend for host");
       let page = template::render_error(
          state.runtime.theme,
+         &state.runtime.custom_theme,
          503,
          "Service Unavailable",
          "No backend configured for this host.",
@@ -721,7 +722,14 @@ enum Terminal {
 }
 
 fn error_response(state: &StateInner, code: u16, title: &str, message: &str) -> RuleOutcome {
-   let page = template::render_error(state.runtime.theme, code, title, message, None);
+   let page = template::render_error(
+      state.runtime.theme,
+      &state.runtime.custom_theme,
+      code,
+      title,
+      message,
+      None,
+   );
    RuleOutcome::Handled(body::html(
       StatusCode::from_u16(code).unwrap_or(StatusCode::FORBIDDEN),
       page,

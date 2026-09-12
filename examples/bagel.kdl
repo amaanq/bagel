@@ -10,6 +10,18 @@ smear { min-delay-ms 1000; max-delay-ms 15000; chunk-min 64; chunk-max 1400 }
 
 backends { backend "*" { url "http://127.0.0.1:8081" } }
 
+// Challenge pages wear the "gruvbox" theme by default, or "minimal" via
+// `challenge-template-theme`. A `challenge-template` block rebrands them
+// from config: every property is optional and applies on top of the base
+// theme, on interstitials, error pages and embedded cards alike.
+// challenge-template-theme "gruvbox"
+// challenge-template {
+//     accent "#b16286"
+//     bg "#1d2021"
+//     card-bg "#282828"
+//     color-scheme "dark"
+// }
+
 policy {
     rules {
         rule "probe" condition=#"path == "/.env""# action="smear"

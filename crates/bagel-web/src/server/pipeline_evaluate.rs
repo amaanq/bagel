@@ -412,10 +412,11 @@ async fn evaluate_challenge_action(
 
       // Check mode injects a challenge fragment into the proxied response.
       if continue_after_issue && let Some(widget) = reg.runtime.embed_widget(&ctx) {
-         eval
-            .challenge_state
-            .injections
-            .push(template::render_embed(eval.state.runtime.theme, &widget));
+         eval.challenge_state.injections.push(template::render_embed(
+            eval.state.runtime.theme,
+            &eval.state.runtime.custom_theme,
+            &widget,
+         ));
          bmetrics::record_challenge_issued(challenge_name);
          tracing::debug!(
             rule = rule_name,
@@ -427,7 +428,12 @@ async fn evaluate_challenge_action(
 
       let result = reg
          .runtime
-         .issue(&ctx, eval.state.runtime.theme, ca.http_code)
+         .issue(
+            &ctx,
+            eval.state.runtime.theme,
+            &eval.state.runtime.custom_theme,
+            ca.http_code,
+         )
          .await;
 
       match result {

@@ -30,7 +30,10 @@ use crate::{
    body::Body,
    cache::FileCache,
    challenge::ChallengeRegistry,
-   config::Config,
+   config::{
+      Config,
+      CustomTheme,
+   },
    error,
    maze::{
       self,
@@ -116,6 +119,8 @@ pub struct Runtime {
    /// Carried across reloads when max-concurrent is unchanged.
    pub smear_slots:      Arc<Semaphore>,
    pub theme:            Theme,
+   /// Operator `challenge-template` overrides, cloned from config at load.
+   pub custom_theme:     CustomTheme,
    pub file_cache:       Option<FileCache>,
    pub tag_cache:        DecayMap<String, Vec<HtmlTag>>,
 }
@@ -507,6 +512,7 @@ impl StateInner {
       let networks = load_networks(&config.policy.networks, file_cache.as_ref()).await?;
 
       let theme = Theme::from(config.challenge_template_theme.as_deref());
+      let custom_theme = config.challenge_template.clone();
 
       let tag_cache = DecayMap::new(Duration::from_hours(1));
 
@@ -552,6 +558,7 @@ impl StateInner {
             deceiver,
             smear_slots,
             theme,
+            custom_theme,
             file_cache,
             tag_cache,
          },

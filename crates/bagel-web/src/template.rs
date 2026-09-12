@@ -7,7 +7,10 @@ use maud::{
    html,
 };
 
-use crate::config::LinkConfig;
+use crate::config::{
+   CustomTheme,
+   LinkConfig,
+};
 
 const DOCUMENT_CSS: &str = include_str!("../assets/document.css");
 const WIDGET_CSS: &str = include_str!("../assets/widget.css");
@@ -26,6 +29,24 @@ impl Theme {
       match self {
          Self::Gruvbox => "gruvbox",
          Self::Minimal => "minimal",
+      }
+   }
+
+   /// `theme-color` for the light `prefers-color-scheme` slot.
+   #[must_use]
+   pub const fn light_theme_color(self) -> &'static str {
+      match self {
+         Self::Gruvbox => "#fbf1c7",
+         Self::Minimal => "#ffffff",
+      }
+   }
+
+   /// `theme-color` for the dark `prefers-color-scheme` slot.
+   #[must_use]
+   pub const fn dark_theme_color(self) -> &'static str {
+      match self {
+         Self::Gruvbox => "#282828",
+         Self::Minimal => "#ffffff",
       }
    }
 }
@@ -105,6 +126,47 @@ pub struct Chrome<'a> {
 const NOSCRIPT: &str = "JavaScript is required to complete this challenge. Please enable \
                         JavaScript and reload the page.";
 
+/// Map one `challenge-template` property to the custom property it drives.
+/// `color-scheme` is not a `--bagel-*` token and is handled separately.
+fn theme_var(name: &str) -> Option<&'static str> {
+   match name {
+      "fg" => Some("--bagel-fg"),
+      "bg" => Some("--bagel-bg"),
+      "accent" => Some("--bagel-accent"),
+      "card-bg" => Some("--bagel-card-bg"),
+      "border" => Some("--bagel-border"),
+      "error" => Some("--bagel-error"),
+      "title-color" => Some("--bagel-title-color"),
+      "link-color" => Some("--bagel-link-color"),
+      "radius" => Some("--bagel-radius"),
+      "font" => Some("--bagel-font"),
+      _ => None,
+   }
+}
+
+/// Inline style carrying the operator's `challenge-template` overrides.
+/// Values were validated at load (hex colors, plain lengths, or a restricted
+/// font stack) and maud escapes them again here, so a hostile string cannot
+/// break out of the attribute. `None` when there is nothing to override, so
+/// pages without a custom theme render no empty `style` attribute.
+fn theme_style(custom: &CustomTheme) -> Option<String> {
+   let mut out = String::new();
+   for var in &custom.vars {
+      if let Some(property) = theme_var(&var.name) {
+         out.push_str(property);
+         out.push(':');
+         out.push_str(&var.value);
+         out.push(';');
+      }
+   }
+   if let Some(scheme) = custom.get("color-scheme") {
+      out.push_str("color-scheme:");
+      out.push_str(scheme);
+      out.push(';');
+   }
+   (!out.is_empty()).then_some(out)
+}
+
 /// Draw the shared card, with one challenge's own markup between the message
 /// and the footer links.
 #[must_use]
@@ -112,15 +174,15 @@ pub fn card(chrome: &Chrome<'_>, extra: &Markup) -> Markup {
    html! {
       div class="card" {
          @if let Some(logo) = chrome.logo.filter(|logo| !logo.is_empty()) {
-            img class="logo" src=(logo) alt="Logo";
+            img class="logo" src=(logo) alt="Logo" decoding="async";
          }
          h1 { (chrome.title) }
-         div class="spinner" {}
+         div class="spinner" role="status" aria-label="Verifying" {}
          p { (chrome.message) }
          noscript { p { (NOSCRIPT) } }
          (extra)
          @if !chrome.links.is_empty() {
-            div class="links" {
+            nav class="links" aria-label="Related links" {
                @for link in chrome.links {
                   a href=(link.url) { (link.name) }
                }
@@ -139,19 +201,22 @@ pub struct ChallengePage<'a> {
 }
 
 #[must_use]
-pub fn render_document(theme: Theme, page: &ChallengePage<'_>) -> String {
+pub fn render_document(theme: Theme, custom: &CustomTheme, page: &ChallengePage<'_>) -> String {
    html! {
       (DOCTYPE)
       html lang="en" {
          head {
             meta charset="utf-8";
             meta name="viewport" content="width=device-width, initial-scale=1";
+            meta name="color-scheme" content=(custom.get("color-scheme").unwrap_or("light dark"));
+            meta name="theme-color" media="(prefers-color-scheme: light)" content=(custom.get("bg").unwrap_or(theme.light_theme_color()));
+            meta name="theme-color" media="(prefers-color-scheme: dark)" content=(custom.get("bg").unwrap_or(theme.dark_theme_color()));
             title { (page.title) }
             style { (PreEscaped(DOCUMENT_CSS)) (PreEscaped(WIDGET_CSS)) }
             (render_tags("meta", &page.meta_tags))
             (render_tags("link", &page.link_tags))
          }
-         body class="bagel-widget" data-theme=(theme.as_str()) {
+         body class="bagel-widget" data-theme=(theme.as_str()) style=[theme_style(custom)] {
             (host(&page.widget, None))
             (script_tag(&page.widget))
          }
@@ -162,12 +227,12 @@ pub fn render_document(theme: Theme, page: &ChallengePage<'_>) -> String {
 
 /// Render a widget for splicing into a page an origin produced.
 #[must_use]
-pub fn render_embed(theme: Theme, widget: &Widget) -> String {
+pub fn render_embed(theme: Theme, custom: &CustomTheme, widget: &Widget) -> String {
    let shadow = (widget.presentation == Presentation::Card).then(|| {
       html! {
          template shadowrootmode="open" {
             style { (PreEscaped(WIDGET_CSS)) }
-            div class="bagel-widget" data-theme=(theme.as_str()) { (widget.body) }
+            div class="bagel-widget" data-theme=(theme.as_str()) style=[theme_style(custom)] { (widget.body) }
          }
       }
    });
@@ -209,6 +274,7 @@ fn script_tag(widget: &Widget) -> Markup {
 #[must_use]
 pub fn render_error(
    theme: Theme,
+   custom: &CustomTheme,
    status_code: u16,
    title: &str,
    message: &str,
@@ -220,11 +286,14 @@ pub fn render_error(
          head {
             meta charset="utf-8";
             meta name="viewport" content="width=device-width, initial-scale=1";
+            meta name="color-scheme" content=(custom.get("color-scheme").unwrap_or("light dark"));
+            meta name="theme-color" media="(prefers-color-scheme: light)" content=(custom.get("bg").unwrap_or(theme.light_theme_color()));
+            meta name="theme-color" media="(prefers-color-scheme: dark)" content=(custom.get("bg").unwrap_or(theme.dark_theme_color()));
             title { (title) }
             style { (PreEscaped(DOCUMENT_CSS)) (PreEscaped(WIDGET_CSS)) }
          }
-         body class="bagel-widget" data-theme=(theme.as_str()) {
-            div class="card" {
+         body class="bagel-widget" data-theme=(theme.as_str()) style=[theme_style(custom)] {
+            main class="card" {
                div class="code" { (status_code) }
                h1 { (title) }
                p { (message) }

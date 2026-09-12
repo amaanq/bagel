@@ -49,6 +49,101 @@ pub struct LinkConfig {
    pub url:  String,
 }
 
+/// One validated `challenge-template` override, e.g. `accent "#b16286"`.
+/// Values are restricted at load so rendering them into a `style` attribute
+/// cannot smuggle extra declarations: colors must be hex, lengths must be
+/// plain, and the font stack may not contain declaration-breaking characters.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ThemeVar {
+   pub name:  String,
+   pub value: String,
+}
+
+/// Operator theme overrides, applied on top of `challenge-template-theme`.
+/// Every name is one of the properties `CustomTheme::validate` accepts;
+/// anything else is a load error rather than something quietly ignored.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct CustomTheme {
+   pub vars: Vec<ThemeVar>,
+}
+
+impl CustomTheme {
+   #[must_use]
+   pub fn is_empty(&self) -> bool {
+      self.vars.is_empty()
+   }
+
+   /// The last value wins, matching how repeated `strings` entries merge.
+   #[must_use]
+   pub fn get(&self, name: &str) -> Option<&str> {
+      self
+         .vars
+         .iter()
+         .rev()
+         .find(|var| var.name == name)
+         .map(|var| var.value.as_str())
+   }
+
+   /// Check one `challenge-template` property and value.
+   pub fn validate(name: &str, value: &str) -> Result<()> {
+      let ok = match name {
+         "fg" | "bg" | "accent" | "card-bg" | "border" | "error" | "title-color" | "link-color" => {
+            is_hex_color(value)
+         },
+         "radius" => is_css_length(value),
+         "font" => {
+            !value.is_empty()
+               && value.bytes().all(|byte| {
+                  byte.is_ascii_alphanumeric()
+                     || matches!(byte, b' ' | b',' | b'\'' | b'"' | b'-' | b'_')
+               })
+         },
+         "color-scheme" => matches!(value, "light" | "dark"),
+         _ => {
+            return Err(Error::Config(format!(
+               "challenge-template: unknown property {name:?}, expected one of fg, bg, accent, \
+                card-bg, border, error, title-color, link-color, radius, font, color-scheme",
+            )));
+         },
+      };
+      if ok {
+         Ok(())
+      } else {
+         Err(Error::Config(format!(
+            "challenge-template: invalid value {value:?} for property {name:?}",
+         )))
+      }
+   }
+}
+
+fn is_hex_color(value: &str) -> bool {
+   let digits = value.strip_prefix('#').unwrap_or("");
+   matches!(digits.len(), 3 | 4 | 6 | 8) && digits.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn is_css_length(value: &str) -> bool {
+   if value == "0" {
+      return true;
+   }
+   let number = value
+      .strip_suffix("px")
+      .or_else(|| value.strip_suffix("rem"))
+      .or_else(|| value.strip_suffix("em"))
+      .or_else(|| value.strip_suffix('%'))
+      .unwrap_or("");
+   if number.is_empty() {
+      return false;
+   }
+   let mut parts = number.split('.');
+   let whole = parts.next().unwrap_or("");
+   let valid_whole = !whole.is_empty() && whole.bytes().all(|byte| byte.is_ascii_digit());
+   let valid_fraction = match parts.next() {
+      None => true,
+      Some(fraction) => !fraction.is_empty() && fraction.bytes().all(|byte| byte.is_ascii_digit()),
+   };
+   valid_whole && valid_fraction && parts.next().is_none()
+}
+
 #[derive(knead_derive::Decode)]
 struct LinkList {
    #[knead(children(name = "link"))]
@@ -183,6 +278,9 @@ pub struct Config {
    pub challenge_template_logo:  Option<String>,
    /// Template theme: "gruvbox" (default) or "minimal".
    pub challenge_template_theme: Option<String>,
+   /// Operator theme overrides from the `challenge-template` block, applied
+   /// on top of the base theme.
+   pub challenge_template:       CustomTheme,
    pub deception:                DeceptionConfig,
    pub smear:                    SmearConfig,
 }
@@ -201,6 +299,7 @@ impl Default for Config {
          links:                    Vec::new(),
          challenge_template_logo:  None,
          challenge_template_theme: None,
+         challenge_template:       CustomTheme::default(),
          deception:                DeceptionConfig::default(),
          smear:                    SmearConfig::default(),
       }
@@ -330,6 +429,20 @@ impl Config {
             }
             self.challenge_template_theme = Some(theme);
          },
+         "challenge-template" => {
+            let list: StringList = decode_node(node)?;
+            let mut vars = Vec::with_capacity(list.entries.len());
+            for entry in list.entries {
+               if let Err(err) = CustomTheme::validate(&entry.key, &entry.value) {
+                  return Err(Error::config_at(offset, err.to_string()));
+               }
+               vars.push(ThemeVar {
+                  name:  entry.key,
+                  value: entry.value,
+               });
+            }
+            self.challenge_template = CustomTheme { vars };
+         },
          "challenge-template-logo" => {
             let Argument(logo) = decode_node::<Argument<String>>(node)?;
             self.challenge_template_logo = Some(logo);
@@ -360,4 +473,76 @@ pub fn reject_repeated<'a, Hasher: BuildHasher>(
       ));
    }
    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+   use super::*;
+
+   fn parse(text: &str) -> Result<Config> {
+      Config::parse(text, Path::new("test.kdl"))
+   }
+
+   #[test]
+   fn custom_theme_defaults_empty() {
+      let config = parse("").unwrap();
+      assert!(config.challenge_template.is_empty());
+   }
+
+   #[test]
+   fn custom_theme_accepts_known_properties() {
+      let config = parse(
+         r##"challenge-template {
+           fg "#ebdbb2"
+           bg "#282828"
+           accent "#b16286"
+           card-bg "#3c3836"
+           border "#504945"
+           error "#fb4934"
+           title-color "#fabd2f"
+           link-color "#83a598"
+           radius "12px"
+           font "Inter, system-ui, sans-serif"
+           color-scheme "dark"
+         }"##,
+      )
+      .unwrap();
+      let theme = config.challenge_template;
+      assert!(!theme.is_empty());
+      assert_eq!(theme.get("accent"), Some("#b16286"));
+      assert_eq!(theme.get("radius"), Some("12px"));
+      assert_eq!(theme.get("font"), Some("Inter, system-ui, sans-serif"));
+      assert_eq!(theme.get("color-scheme"), Some("dark"));
+      assert_eq!(theme.get("unknown"), None);
+   }
+
+   #[test]
+   fn custom_theme_rejects_unknown_property() {
+      let err = match parse("challenge-template { watermark \"x\" }") {
+         Ok(_) => panic!("unknown theme properties must be rejected"),
+         Err(err) => err.to_string(),
+      };
+      assert!(err.contains("unknown property"), "{err}");
+   }
+
+   #[test]
+   fn custom_theme_rejects_bad_values() {
+      for (name, value) in [
+         ("accent", "red"),
+         ("accent", "#12345"),
+         ("accent", "#fff; color: red"),
+         ("bg", "oklch(0.5 0.1 20)"),
+         ("radius", "12"),
+         ("radius", "1em;evil:x"),
+         ("font", "a;b"),
+         ("font", "url(x)"),
+         ("color-scheme", "auto"),
+      ] {
+         let err = match parse(&format!("challenge-template {{ {name} \"{value}\" }}")) {
+            Ok(_) => panic!("{name}={value} must be rejected"),
+            Err(err) => err.to_string(),
+         };
+         assert!(err.contains("invalid value"), "{name}={value}: {err}");
+      }
+   }
 }
