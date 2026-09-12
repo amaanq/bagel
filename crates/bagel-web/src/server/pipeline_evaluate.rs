@@ -90,18 +90,18 @@ pub(super) async fn apply_candidate_action(action: &Action, eval: &mut Eval<'_>)
          rewrite,
          backend,
       } => {
-         bmetrics::record_action(Action::PROXY);
+         bmetrics::record_action(eval.host, Action::PROXY);
          proxy_outcome(match_re.as_ref(), rewrite, backend, eval.request_uri)
       },
       Action::Challenge(ca) => evaluate_challenge_action("scorecard", ca, eval, false).await,
       Action::Tarpit { maze } => {
-         bmetrics::record_action(Action::TARPIT);
+         bmetrics::record_action(eval.host, Action::TARPIT);
          RuleOutcome::Handled(
             tarpit_response(eval.state, maze, eval.host, eval.ctx.remote_ip).await,
          )
       },
       Action::Report { .. } => RuleOutcome::Continue,
-      other => dispatch_sub_action(other, eval.state, eval.request_uri, eval.user_agent),
+      other => dispatch_sub_action(other, eval),
    }
 }
 
@@ -197,10 +197,10 @@ pub(super) async fn evaluate_rule_recursive(rule: &RuleState, eval: &mut Eval<'_
          .eval_ast_with_scope::<bool>(eval.scope, ast)
       {
          Ok(true) => {
-            bmetrics::record_rule_hit(&rule.name);
+            bmetrics::record_rule_hit(eval.host, &rule.name);
          },
          Ok(false) => {
-            bmetrics::record_rule_miss(&rule.name);
+            bmetrics::record_rule_miss(eval.host, &rule.name);
             return RuleOutcome::Continue;
          },
          Err(err) => {
@@ -214,22 +214,22 @@ pub(super) async fn evaluate_rule_recursive(rule: &RuleState, eval: &mut Eval<'_
       Action::None => eval_children(&rule.children, eval, None).await,
       Action::Pass => {
          tracing::debug!(rule = rule.name, action = Action::PASS, "rule hit");
-         bmetrics::record_action(Action::PASS);
+         bmetrics::record_action(eval.host, Action::PASS);
          RuleOutcome::Handled(pass_response()).tagged(&rule.name, Action::PASS)
       },
       Action::Deny { code } => {
          tracing::debug!(rule = rule.name, action = Action::DENY, code, "rule hit");
-         bmetrics::record_action(Action::DENY);
+         bmetrics::record_action(eval.host, Action::DENY);
          deny_response(eval.state, *code).tagged(&rule.name, Action::DENY)
       },
       Action::Block { code } => {
          tracing::debug!(rule = rule.name, action = Action::BLOCK, code, "rule hit");
-         bmetrics::record_action(Action::BLOCK);
+         bmetrics::record_action(eval.host, Action::BLOCK);
          block_response(eval.state, *code).tagged(&rule.name, Action::BLOCK)
       },
       Action::Code(code) => {
          tracing::debug!(rule = rule.name, action = Action::CODE, code, "rule hit");
-         bmetrics::record_action(Action::CODE);
+         bmetrics::record_action(eval.host, Action::CODE);
          RuleOutcome::Handled(body::status(
             StatusCode::from_u16(*code).unwrap_or(StatusCode::FORBIDDEN),
          ))
@@ -237,25 +237,25 @@ pub(super) async fn evaluate_rule_recursive(rule: &RuleState, eval: &mut Eval<'_
       },
       Action::Drop => {
          tracing::debug!(rule = rule.name, action = Action::DROP, "rule hit");
-         bmetrics::record_action(Action::DROP);
+         bmetrics::record_action(eval.host, Action::DROP);
          RuleOutcome::Drop
       },
       Action::Tarpit { maze } => {
          tracing::debug!(rule = rule.name, action = Action::TARPIT, maze, "rule hit");
-         bmetrics::record_action(Action::TARPIT);
+         bmetrics::record_action(eval.host, Action::TARPIT);
          let client_ip = eval.ctx.remote_ip;
          RuleOutcome::Handled(tarpit_response(eval.state, maze, eval.host, client_ip).await)
             .tagged(&rule.name, Action::TARPIT)
       },
       Action::Smear => {
          tracing::debug!(rule = rule.name, action = Action::SMEAR, "rule hit");
-         bmetrics::record_action(Action::SMEAR);
+         bmetrics::record_action(eval.host, Action::SMEAR);
          smear_response(eval.state, eval.request_uri, eval.user_agent)
             .tagged(&rule.name, Action::SMEAR)
       },
       Action::Report { kind } => {
          tracing::debug!(rule = rule.name, action = Action::REPORT, kind, "rule hit");
-         bmetrics::record_action(Action::REPORT);
+         bmetrics::record_action(eval.host, Action::REPORT);
          emit_offense(
             eval.state,
             eval.ctx.remote_ip,
@@ -272,7 +272,7 @@ pub(super) async fn evaluate_rule_recursive(rule: &RuleState, eval: &mut Eval<'_
          request_headers,
       } => {
          tracing::debug!(rule = rule.name, action = Action::CONTEXT, "rule hit");
-         bmetrics::record_action(Action::CONTEXT);
+         bmetrics::record_action(eval.host, Action::CONTEXT);
          let child_ctx = eval.ctx.with_request_headers(request_headers);
          let mut child_scope = child_ctx.scope();
          let mut merged = eval.headers.clone();
@@ -307,7 +307,7 @@ pub(super) async fn evaluate_rule_recursive(rule: &RuleState, eval: &mut Eval<'_
             backend,
             "rule hit"
          );
-         bmetrics::record_action(Action::PROXY);
+         bmetrics::record_action(eval.host, Action::PROXY);
          proxy_outcome(match_re.as_ref(), rewrite, backend, eval.request_uri)
             .tagged(&rule.name, Action::PROXY)
       },
@@ -375,7 +375,7 @@ async fn evaluate_challenge_action(
             challenge = challenge_name,
             "challenge already passed"
          );
-         bmetrics::record_challenge_passed(challenge_name);
+         bmetrics::record_challenge_passed(eval.host, challenge_name);
          continue;
       }
 
@@ -417,7 +417,7 @@ async fn evaluate_challenge_action(
             &eval.state.runtime.custom_theme,
             &widget,
          ));
-         bmetrics::record_challenge_issued(challenge_name);
+         bmetrics::record_challenge_issued(eval.host, challenge_name);
          tracing::debug!(
             rule = rule_name,
             challenge = challenge_name,
@@ -439,7 +439,7 @@ async fn evaluate_challenge_action(
       match result {
          IssueResult::Response(resp) => {
             // Only verify endpoints may seal a passed state.
-            bmetrics::record_challenge_issued(challenge_name);
+            bmetrics::record_challenge_issued(eval.host, challenge_name);
             tracing::debug!(
                rule = rule_name,
                challenge = challenge_name,
@@ -454,7 +454,7 @@ async fn evaluate_challenge_action(
             eval
                .challenge_state
                .issue_challenge(challenge_name, &challenge_key, reg.duration);
-            bmetrics::record_challenge_passed(challenge_name);
+            bmetrics::record_challenge_passed(eval.host, challenge_name);
             tracing::debug!(
                rule = rule_name,
                challenge = challenge_name,
@@ -462,19 +462,14 @@ async fn evaluate_challenge_action(
             );
          },
          IssueResult::Failed => {
-            bmetrics::record_challenge_failed(challenge_name);
+            bmetrics::record_challenge_failed(eval.host, challenge_name);
             tracing::debug!(
                rule = rule_name,
                challenge = challenge_name,
                "challenge failed"
             );
             if !continue_after_issue {
-               return dispatch_sub_action(
-                  &ca.fail_action,
-                  eval.state,
-                  eval.request_uri,
-                  eval.user_agent,
-               );
+               return dispatch_sub_action(&ca.fail_action, eval);
             }
          },
          IssueResult::Skip => {
@@ -490,40 +485,30 @@ async fn evaluate_challenge_action(
    if continue_after_issue {
       RuleOutcome::Continue
    } else {
-      dispatch_sub_action(
-         &ca.pass_action,
-         eval.state,
-         eval.request_uri,
-         eval.user_agent,
-      )
+      dispatch_sub_action(&ca.pass_action, eval)
    }
 }
 
-fn dispatch_sub_action(
-   action: &Action,
-   state: &StateInner,
-   request_uri: &Uri,
-   user_agent: &str,
-) -> RuleOutcome {
+fn dispatch_sub_action(action: &Action, eval: &Eval<'_>) -> RuleOutcome {
    match action {
       Action::Deny { code } => {
-         bmetrics::record_action(Action::DENY);
-         deny_response(state, *code)
+         bmetrics::record_action(eval.host, Action::DENY);
+         deny_response(eval.state, *code)
       },
       Action::Block { code } => {
-         bmetrics::record_action(Action::BLOCK);
-         block_response(state, *code)
+         bmetrics::record_action(eval.host, Action::BLOCK);
+         block_response(eval.state, *code)
       },
       Action::Drop => {
-         bmetrics::record_action(Action::DROP);
+         bmetrics::record_action(eval.host, Action::DROP);
          RuleOutcome::Drop
       },
       Action::Smear => {
-         bmetrics::record_action(Action::SMEAR);
-         smear_response(state, request_uri, user_agent)
+         bmetrics::record_action(eval.host, Action::SMEAR);
+         smear_response(eval.state, eval.request_uri, eval.user_agent)
       },
       _ => {
-         bmetrics::record_action(Action::PASS);
+         bmetrics::record_action(eval.host, Action::PASS);
          RuleOutcome::Handled(pass_response())
       },
    }

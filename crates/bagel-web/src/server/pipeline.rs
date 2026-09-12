@@ -160,12 +160,12 @@ pub async fn handle_request(shared: &SharedState, addr: SocketAddr, mut req: Req
       .as_ref()
       .and_then(|scoring| scoring.evaluate(&state.runtime.rhai_engine, &mut scope));
    if let Some(ref result) = score_result {
-      bmetrics::record_score(&result.scorecard.name, result.score);
+      bmetrics::record_score(&host, &result.scorecard.name, result.score);
       for signal in &result.matched {
-         bmetrics::record_signal_match(&result.scorecard.name, signal);
+         bmetrics::record_signal_match(&host, &result.scorecard.name, signal);
       }
       for signal in &result.errors {
-         bmetrics::record_signal_error(&result.scorecard.name, signal);
+         bmetrics::record_signal_error(&host, &result.scorecard.name, signal);
       }
    }
 
@@ -270,6 +270,7 @@ pub async fn handle_request(shared: &SharedState, addr: SocketAddr, mut req: Req
 
    if let Some(ref result) = score_result {
       bmetrics::record_scoring_decision(
+         &host,
          &result.scorecard.name,
          result.scorecard.mode.as_str(),
          candidate_status,
@@ -596,9 +597,9 @@ pub(super) fn emit_offense(
       group_key,
    };
    if source.emit(&offense) {
-      bmetrics::record_offense(offense.kind.label(), "sent");
+      bmetrics::record_offense(host, offense.kind.label(), "sent");
    } else {
-      bmetrics::record_offense(offense.kind.label(), "dropped");
+      bmetrics::record_offense(host, offense.kind.label(), "dropped");
       let mut last = OFFENSE_DROP_WARNING
          .lock()
          .unwrap_or_else(std::sync::PoisonError::into_inner);

@@ -92,8 +92,8 @@ pub(super) async fn serve_maze(state: &StateInner, req: &MazeServe<'_>) -> Respo
    })
    .await;
 
-   bmetrics::record_poison_request(&req.runtime.name, class.as_str());
-   bmetrics::record_maze_render(rendered.renderer, rendered.result);
+   bmetrics::record_poison_request(req.host, &req.runtime.name, class.as_str());
+   bmetrics::record_maze_render(req.host, rendered.renderer, rendered.result);
    tracing::info!(
       target: "bagel::decision",
       maze = req.runtime.name,
@@ -237,6 +237,6 @@ pub async fn tarpit_response(
       head_only: false,
    })
    .await;
-   bmetrics::record_maze_render(rendered.renderer, rendered.result);
+   bmetrics::record_maze_render(host, rendered.renderer, rendered.result);
    rendered.response
 }
