@@ -42,7 +42,10 @@ use self::{
    },
 };
 use crate::{
-   config::policy::ChallengeConfig,
+   config::{
+      CustomTheme,
+      policy::ChallengeConfig,
+   },
    error,
    ip_network_prefix,
    template::{
@@ -101,13 +104,14 @@ impl ChallengeRuntime {
       &self,
       ctx: &ChallengeContext<'_>,
       theme: Theme,
+      custom: &CustomTheme,
       http_code: u16,
    ) -> IssueResult {
       match self {
          Self::Cookie(ch) => ch.issue(ctx),
-         Self::Refresh(ch) => ch.issue(ctx, theme, http_code),
+         Self::Refresh(ch) => ch.issue(ctx, theme, custom, http_code),
          Self::Dnsbl(ch) => ch.issue(ctx).await,
-         Self::PowSha256(ch) => ch.issue(ctx, theme, http_code),
+         Self::PowSha256(ch) => ch.issue(ctx, theme, custom, http_code),
       }
    }
 

@@ -16,6 +16,7 @@ use crate::{
       Body,
       Response,
    },
+   config::CustomTheme,
    template::{
       self,
       LoaderData,
@@ -58,7 +59,7 @@ impl PowSha256Challenge {
          Presentation::Card => {
             Widget::card(template::card(
                &chrome(ctx),
-               &html! { p class="bagel-status" { "Solving challenge..." } },
+               &html! { p class="bagel-status" role="status" aria-live="polite" { "Solving challenge..." } },
             ))
          },
       };
@@ -68,11 +69,17 @@ impl PowSha256Challenge {
 
    /// Renders the challenge page with the solver embedded, so the work runs
    /// in the client's JS engine rather than costing us anything.
-   pub fn issue(&self, ctx: &ChallengeContext<'_>, theme: Theme, http_code: u16) -> IssueResult {
+   pub fn issue(
+      &self,
+      ctx: &ChallengeContext<'_>,
+      theme: Theme,
+      custom: &CustomTheme,
+      http_code: u16,
+   ) -> IssueResult {
       let chrome = chrome(ctx);
       let widget = self.widget(ctx, Presentation::Card, false);
       let page = challenge_page(ctx, &[], chrome.title, widget);
-      let body = template::render_document(theme, &page);
+      let body = template::render_document(theme, custom, &page);
 
       let status = StatusCode::from_u16(http_code).unwrap_or(StatusCode::IM_A_TEAPOT);
 

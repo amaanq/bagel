@@ -23,6 +23,7 @@ use crate::{
       Body,
       Response,
    },
+   config::CustomTheme,
    template::{
       self,
       Theme,
@@ -49,7 +50,13 @@ pub struct RefreshChallenge {
 }
 
 impl RefreshChallenge {
-   pub fn issue(&self, ctx: &ChallengeContext<'_>, theme: Theme, http_code: u16) -> IssueResult {
+   pub fn issue(
+      &self,
+      ctx: &ChallengeContext<'_>,
+      theme: Theme,
+      custom: &CustomTheme,
+      http_code: u16,
+   ) -> IssueResult {
       let verify = url::verify_url(
          ctx.challenge_name,
          &ctx.key_hex,
@@ -79,7 +86,7 @@ impl RefreshChallenge {
       let chrome = chrome(ctx);
       let widget = Widget::card(template::card(&chrome, &extra));
       let page = challenge_page(ctx, &extra_meta, chrome.title, widget);
-      let body = template::render_document(theme, &page);
+      let body = template::render_document(theme, custom, &page);
 
       let status = StatusCode::from_u16(http_code).unwrap_or(StatusCode::IM_A_TEAPOT);
 
