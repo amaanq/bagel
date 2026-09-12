@@ -1,7 +1,10 @@
-// Bagel SHA-256 Proof-of-Work solver
-// Uses SubtleCrypto for SHA-256 and Web Workers for parallelism.
-
-const WORKER_COUNT = navigator.hardwareConcurrency || 4;
+// Bagel SHA-256 Proof-of-Work solver.
+//
+// Runs on the client's JS engine so proving costs us nothing. Throughput
+// comes from a small bounded pool of SubtleCrypto digests: enough to keep
+// the pipeline full, few enough to avoid the memory churn of thousands of
+// in-flight promises. The main thread yields between batches so the page
+// stays responsive while solving.
 
 /**
  * Solve a SHA-256 proof-of-work challenge.
@@ -10,24 +13,51 @@ const WORKER_COUNT = navigator.hardwareConcurrency || 4;
  * @param {string} verifyUrl - URL to POST the solution to
  * @returns {Promise<boolean>} Whether verification succeeded
  */
-export async function solve(challenge, difficulty, verifyUrl, background = false, root = document) {
+export async function solve(
+  challenge,
+  difficulty,
+  verifyUrl,
+  background = false,
+  root = document,
+) {
+  if (typeof challenge !== "string" || !/^[0-9a-fA-F]{64}$/.test(challenge)) {
+    console.error("[bagel] PoW: invalid challenge key");
+    return false;
+  }
+  if (!Number.isInteger(difficulty) || difficulty < 1 || difficulty > 64) {
+    console.error("[bagel] PoW: invalid difficulty");
+    return false;
+  }
+  if (!root || typeof crypto?.subtle?.digest !== "function") {
+    console.error("[bagel] PoW: SubtleCrypto unavailable");
+    return false;
+  }
+
   const startTime = performance.now();
-
-  // Split work across workers
-  const chunkSize = 1_000_000;
-  let nonce = 0;
-  let found = null;
-
-  // Try to solve using SubtleCrypto in the main thread (workers are optional)
   const challengeBytes = hexToBytes(challenge);
+  // Reused across nonces: challenge || 8-byte big-endian nonce.
+  const input = new Uint8Array(challengeBytes.length + 8);
+  input.set(challengeBytes, 0);
+  const nonceView = new DataView(
+    input.buffer,
+    input.byteOffset + challengeBytes.length,
+    8,
+  );
 
-  while (!found) {
-    const batch = [];
-    for (let i = 0; i < 10000 && !found; i++) {
-      const candidate = nonce + i;
-      batch.push(tryNonce(challengeBytes, candidate, difficulty));
+  const poolSize = concurrencyFor();
+  const statusEl = root.querySelector?.(".bagel-status") ?? null;
+  const reportProgress = throttleProgress(statusEl, startTime);
+
+  let nonce = 0;
+  let found = -1;
+
+  // Bounded pool: `poolSize` digests in flight, then yield so input stays
+  // responsive. Each batch allocates `poolSize` promises, not thousands.
+  while (found < 0) {
+    const batch = new Array(poolSize);
+    for (let i = 0; i < poolSize; i++) {
+      batch[i] = tryNonce(input, nonceView, nonce + i, difficulty);
     }
-
     const results = await Promise.all(batch);
     for (let i = 0; i < results.length; i++) {
       if (results[i]) {
@@ -35,20 +65,16 @@ export async function solve(challenge, difficulty, verifyUrl, background = false
         break;
       }
     }
-    nonce += batch.length;
-
-    // Update progress indicator if available
-    const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
-    const el = root.querySelector(".bagel-status");
-    if (el) {
-      el.textContent = `Checking... (${elapsed}s, ${nonce.toLocaleString()} attempts)`;
-    }
+    nonce += poolSize;
+    reportProgress(nonce);
+    await yieldToUI();
   }
 
   const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
-  console.log(`[bagel] PoW solved: nonce=${found}, ${nonce} attempts in ${elapsed}s`);
+  console.log(
+    `[bagel] PoW solved: nonce=${found}, ${nonce} attempts in ${elapsed}s`,
+  );
 
-  // Submit the solution
   try {
     const resp = await fetch(verifyUrl, {
       method: "POST",
@@ -68,16 +94,40 @@ export async function solve(challenge, difficulty, verifyUrl, background = false
   return false;
 }
 
+/// Digests per batch: enough parallelism for SubtleCrypto, bounded for memory.
+function concurrencyFor() {
+  const cores = Number(globalThis.navigator?.hardwareConcurrency) || 4;
+  return Math.min(256, Math.max(32, cores * 16));
+}
+
+/// Yield control so hover, scroll and the progress label stay alive.
+function yieldToUI() {
+  if (typeof globalThis.scheduler?.yield === "function") {
+    return globalThis.scheduler.yield();
+  }
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/// Cache the status node and throttle text writes to ~4Hz; formatting
+/// (`toLocaleString`) only runs when a write actually happens.
+function throttleProgress(el, startTime) {
+  if (!el) return () => {};
+  let last = 0;
+  return (nonce) => {
+    const now = performance.now();
+    if (now - last < 250) return;
+    last = now;
+    const elapsed = ((now - startTime) / 1000).toFixed(1);
+    el.textContent = `Checking... (${elapsed}s, ${nonce.toLocaleString()} attempts)`;
+  };
+}
+
 /**
  * Try a single nonce against the challenge.
  * SHA-256(challenge || nonce_bytes) must have `difficulty` leading zero nibbles.
  */
-async function tryNonce(challengeBytes, nonce, difficulty) {
-  const nonceBytes = numberToBytes(nonce);
-  const input = new Uint8Array(challengeBytes.length + nonceBytes.length);
-  input.set(challengeBytes, 0);
-  input.set(nonceBytes, challengeBytes.length);
-
+async function tryNonce(input, nonceView, nonce, difficulty) {
+  nonceView.setBigUint64(0, BigInt(nonce));
   const hash = await crypto.subtle.digest("SHA-256", input);
   return checkLeadingZeros(new Uint8Array(hash), difficulty);
 }
@@ -88,25 +138,29 @@ function checkLeadingZeros(hash, nibbles) {
     if (hash[i] !== 0) return false;
   }
   if (nibbles % 2 === 1) {
-    if ((hash[fullBytes] >> 4) !== 0) return false;
+    if (hash[fullBytes] >> 4 !== 0) return false;
   }
   return true;
 }
 
+const HEX_TABLE = (() => {
+  const table = new Uint8Array(256);
+  for (let i = 0; i < 10; i++) table[48 + i] = i;
+  for (let i = 0; i < 6; i++) {
+    table[65 + i] = 10 + i;
+    table[97 + i] = 10 + i;
+  }
+  return table;
+})();
+
 function hexToBytes(hex) {
-  const bytes = new Uint8Array(hex.length / 2);
+  const bytes = new Uint8Array(hex.length >> 1);
   for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+    const hi = HEX_TABLE[hex.charCodeAt(i * 2)] ?? 0;
+    const lo = HEX_TABLE[hex.charCodeAt(i * 2 + 1)] ?? 0;
+    bytes[i] = (hi << 4) | lo;
   }
   return bytes;
-}
-
-function numberToBytes(n) {
-  // Encode as 8-byte big-endian
-  const buf = new ArrayBuffer(8);
-  const view = new DataView(buf);
-  view.setBigUint64(0, BigInt(n));
-  return new Uint8Array(buf);
 }
 
 /**
@@ -136,8 +190,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const root = shadowRootFor(host) || host;
     const challenge = host.dataset.challenge;
-    const difficulty = parseInt(host.dataset.difficulty, 10);
+    const difficulty = Number.parseInt(host.dataset.difficulty, 10);
     const verifyUrl = host.dataset.verifyUrl || "/__bagel/pow/verify";
-    solve(challenge, difficulty, verifyUrl, host.dataset.mode === "background", root);
+    if (typeof challenge !== "string" || !Number.isInteger(difficulty))
+      continue;
+    solve(
+      challenge,
+      difficulty,
+      verifyUrl,
+      host.dataset.mode === "background",
+      root,
+    ).catch((err) => {
+      console.error("[bagel] PoW solver failed:", err);
+    });
   }
 });
