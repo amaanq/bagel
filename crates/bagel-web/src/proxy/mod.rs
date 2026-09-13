@@ -93,11 +93,7 @@ async fn connect_backend(backend: &Backend, address: &str) -> Result<TcpStream, 
 fn backend_address(authority: &Authority) -> String {
    let host = authority.host();
    let port = authority.port_u16().unwrap_or(80);
-   if host.contains(':') {
-      format!("[{host}]:{port}")
-   } else {
-      format!("{host}:{port}")
-   }
+   format!("{host}:{port}")
 }
 
 fn finish(resp: hyper::Response<Incoming>) -> Response {
@@ -140,12 +136,17 @@ pub async fn proxy_request(
       .map(Authority::as_str)
       .and_then(|raw| HeaderValue::from_str(raw).ok());
 
-   let new_uri = Uri::builder()
-      .scheme(scheme)
-      .authority(authority)
-      .path_and_query(path_and_query)
-      .build()
-      .map_err(|err| bad_gateway(backend, "failed to build proxy URI", &err))?;
+   let upgrade = requested_upgrade(&req);
+   let new_uri = if upgrade.is_some() || backend.config.proxy_protocol_out.is_some() {
+      Uri::from(path_and_query)
+   } else {
+      Uri::builder()
+         .scheme(scheme)
+         .authority(authority)
+         .path_and_query(path_and_query)
+         .build()
+         .map_err(|err| bad_gateway(backend, "failed to build proxy URI", &err))?
+   };
 
    *req.uri_mut() = new_uri;
 
@@ -170,8 +171,6 @@ pub async fn proxy_request(
          HeaderValue::from_str(&ip_str).expect("an IP address is a valid HTTP header value");
       req.headers_mut().insert(ip_header.clone(), value);
    }
-
-   let upgrade = requested_upgrade(&req);
 
    strip_hop_by_hop_headers(req.headers_mut(), upgrade.is_some());
 
