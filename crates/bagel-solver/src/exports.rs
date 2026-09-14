@@ -1,13 +1,22 @@
 use core::cell::UnsafeCell;
 
 use crate::{
-   codec,
+   codec::{
+      self,
+      Handoff,
+      Kind,
+      Solution,
+   },
+   scratch,
    sha256::KeyBlock,
 };
 
+const PAD_BLOCKS: usize = 1 << scratch::MAX_BLOCKS_LOG2;
+
 struct State {
-   buf: [u8; 64],
-   key: [u8; codec::KEY_LEN],
+   buf:     [u8; 64],
+   handoff: Handoff,
+   pad:     [[u8; 32]; PAD_BLOCKS],
 }
 
 /// wasm32 has one thread, so the static is never observed concurrently.
@@ -16,8 +25,14 @@ struct Shared(UnsafeCell<State>);
 unsafe impl Sync for Shared {}
 
 static STATE: Shared = Shared(UnsafeCell::new(State {
-   buf: [0; 64],
-   key: [0; codec::KEY_LEN],
+   buf:     [0; 64],
+   handoff: Handoff {
+      key:         [0; codec::KEY_LEN],
+      kind:        Kind::Sha256,
+      difficulty:  0,
+      blocks_log2: 0,
+   },
+   pad:     [[0; 32]; PAD_BLOCKS],
 }));
 
 #[expect(
@@ -33,32 +48,39 @@ pub extern "C" fn buf() -> *mut u8 {
    state().buf.as_mut_ptr()
 }
 
-/// Decode the handoff blob left in the buffer and remember its key.
-///
-/// Returns the difficulty, or -1 when the blob is malformed.
+/// Decode the handoff blob left in the buffer and remember it. Returns the
+/// difficulty, or -1 when the blob is malformed.
 #[unsafe(no_mangle)]
 pub extern "C" fn unpack(len: u32) -> i32 {
    let st = state();
-   let Some(blob) = st.buf.get(..len as usize) else {
+   let Some(handoff) = st.buf.get(..len as usize).and_then(codec::unpack_handoff) else {
       return -1;
    };
-   match codec::unpack_handoff(blob) {
-      Some((key, difficulty)) => {
-         st.key = key;
-         i32::from(difficulty)
-      },
-      None => -1,
+   if handoff.kind == Kind::Scratch && handoff.blocks_log2 > scratch::MAX_BLOCKS_LOG2 {
+      return -1;
    }
+   let difficulty = i32::from(handoff.difficulty);
+   st.handoff = handoff;
+   difficulty
 }
 
 /// Try `count` nonces from `start`, returning the first that satisfies the
-/// difficulty or -1 so the caller can yield and continue.
+/// handoff or -1 so the caller can yield and continue.
 #[unsafe(no_mangle)]
-pub extern "C" fn solve(start: u64, count: u32, difficulty: u32) -> i64 {
-   let mut block = KeyBlock::new(&state().key);
+pub extern "C" fn solve(start: u64, count: u32) -> i64 {
+   let st = state();
+   let mut key = KeyBlock::new(&st.handoff.key);
+   let bits = u32::from(st.handoff.difficulty);
    let end = start.saturating_add(u64::from(count));
-   (start..end)
-      .find(|&nonce| block.satisfies(nonce, difficulty))
+   let found = match st.handoff.kind {
+      Kind::Sha256 => (start..end).find(|&nonce| key.satisfies(nonce, bits)),
+      Kind::Scratch => {
+         let blocks_log2 = st.handoff.blocks_log2;
+         (start..end)
+            .find(|&nonce| scratch::satisfies(&mut st.pad, &mut key, nonce, blocks_log2, bits))
+      },
+   };
+   found
       .and_then(|nonce| i64::try_from(nonce).ok())
       .unwrap_or(-1)
 }
@@ -67,7 +89,12 @@ pub extern "C" fn solve(start: u64, count: u32, difficulty: u32) -> i64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn seal(nonce: u64, iv: u32) -> u32 {
    let st = state();
-   let sealed = codec::pack_solution(iv.to_le_bytes(), &st.key, nonce);
+   let solution = Solution {
+      key: st.handoff.key,
+      nonce,
+      difficulty: st.handoff.difficulty,
+   };
+   let sealed = codec::pack_solution(iv.to_le_bytes(), &solution);
    st.buf[..codec::SOLUTION_LEN].copy_from_slice(&sealed);
    codec::SOLUTION_LEN as u32
 }

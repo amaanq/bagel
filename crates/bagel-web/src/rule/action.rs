@@ -63,6 +63,8 @@ pub enum Action {
 pub struct ChallengeAction {
    pub challenges:  Vec<String>,
    pub http_code:   u16,
+   /// Proof-of-work difficulty demanded here instead of the challenge's own.
+   pub difficulty:  Option<u32>,
    pub pass_action: Box<Action>,
    pub fail_action: Box<Action>,
 }
@@ -94,6 +96,11 @@ impl Action {
    ) -> Result<Self, String> {
       if !action_str.eq_ignore_ascii_case(Self::REPORT) && settings.kind.is_some() {
          return Err("kind is only valid on the report action".into());
+      }
+      let challenging = action_str.eq_ignore_ascii_case(Self::CHALLENGE)
+         || action_str.eq_ignore_ascii_case(Self::CHECK);
+      if !challenging && settings.difficulty.is_some() {
+         return Err("difficulty is only valid on the challenge and check actions".into());
       }
       Ok(match action_str.to_lowercase().as_str() {
          Self::NONE => Self::None,
@@ -187,6 +194,7 @@ impl Action {
             let ca = ChallengeAction {
                challenges:  challenges.to_vec(),
                http_code:   settings.http_code.unwrap_or(default_http_code),
+               difficulty:  settings.difficulty,
                pass_action: sub_action(settings.pass_action.as_deref(), Self::Pass, "pass")?,
                fail_action: sub_action(
                   settings.fail_action.as_deref(),

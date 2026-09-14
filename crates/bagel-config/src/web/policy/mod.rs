@@ -113,6 +113,8 @@ pub struct RuleSettings {
    pub maze:             Option<String>,
    /// Offense kind (`report` action).
    pub kind:             Option<String>,
+   /// Proof-of-work difficulty override (`challenge` and `check` actions).
+   pub difficulty:       Option<u32>,
 }
 
 /// One weighted scoring signal inside a scorecard.

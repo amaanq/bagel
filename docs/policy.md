@@ -495,6 +495,14 @@ rule "trap-scraper" condition=#"user_agent.contains("ExampleBot")"# action="tarp
 threshold 90 action="tarpit" maze="default"
 ```
 
+A challenge threshold or rule may raise a proof-of-work challenge's difficulty
+for the requests it matches, so one challenge serves several suspicion levels.
+
+```kdl
+threshold 40 action="challenge" { challenges "pow" }
+threshold 80 action="challenge" difficulty=7 { challenges "pow" }
+```
+
 Duration fields take explicit units such as `"60s"`, `"1h"` and `"24h"`.
 Policy-directory merging keeps source order, and duplicate renderer, maze,
 scorecard, signal and rule identifiers are errors rather than last-write-wins

@@ -16,6 +16,7 @@ use crate::{
       Response,
    },
    challenge::{
+      ChallengeRuntime,
       RequestChallengeState,
       key::{
          bucket_expiry,
@@ -380,12 +381,16 @@ async fn evaluate_challenge_action(
          &eval.state.keys.key_fingerprint,
       );
 
+      let level = match reg.runtime {
+         ChallengeRuntime::Pow(ref pow) => ca.difficulty.unwrap_or(pow.difficulty),
+         _ => 0,
+      };
       if eval
          .challenge_state
-         .is_challenge_passed(challenge_name, &challenge_key)
+         .is_challenge_passed(challenge_name, &challenge_key, level)
          || eval
             .challenge_state
-            .is_challenge_passed(challenge_name, &previous_key)
+            .is_challenge_passed(challenge_name, &previous_key, level)
       {
          tracing::debug!(
             rule = rule_name,
@@ -423,6 +428,7 @@ async fn evaluate_challenge_action(
       );
       ctx.meta_tags = meta_tags;
       ctx.link_tags = link_tags;
+      ctx.difficulty = ca.difficulty;
       ctx.strings = &eval.state.config.strings;
       ctx.links = &eval.state.config.links;
       ctx.logo = eval.state.config.challenge_template_logo.as_deref();

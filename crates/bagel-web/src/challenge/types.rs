@@ -48,6 +48,8 @@ pub struct ChallengeContext<'a> {
    pub strings:        &'a HashMap<String, String>,
    pub links:          &'a [LinkConfig],
    pub logo:           Option<&'a str>,
+   /// Difficulty the issuing rule asked for, over the challenge's own.
+   pub difficulty:     Option<u32>,
 }
 
 impl<'a> ChallengeContext<'a> {
@@ -71,6 +73,7 @@ impl<'a> ChallengeContext<'a> {
          strings: &EMPTY_STRINGS,
          links: &[],
          logo: None,
+         difficulty: None,
       }
    }
 }
