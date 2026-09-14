@@ -117,7 +117,10 @@ string with GREASE removed so Chrome hashes stably. It's a coarser signal than
 JA4 because nginx exposes no extension list, but it still separates HTTP
 libraries from browsers, and the value is logged on every decision line as
 `fp_proxied` so a browser allowlist can be read off real traffic. Like
-`client-ip-header`, it requires `trusted-proxies`.
+`client-ip-header`, it requires `trusted-proxies`. It only works when the
+proxy terminates the client's own TLS session. Behind a CDN such as
+Cloudflare the header describes the CDN's origin-pull client and every
+request hashes to the same value, so leave it unset there.
 
 `lease["active"]` is false unless the daemon has attached its defense plane. It
 matches the whole lease network rather than one address, and leases whose
