@@ -46,7 +46,10 @@ use crate::{
       condition::ConditionContext,
    },
    server::{
-      maze::tarpit_response,
+      maze::{
+         lure_fragment,
+         tarpit_response,
+      },
       pipeline::{
          block_response,
          deny_response,
@@ -100,7 +103,7 @@ pub(super) async fn apply_candidate_action(action: &Action, eval: &mut Eval<'_>)
             tarpit_response(eval.state, maze, eval.host, eval.ctx.remote_ip).await,
          )
       },
-      Action::Report { .. } => RuleOutcome::Continue,
+      Action::Report { .. } | Action::Lure { .. } => RuleOutcome::Continue,
       other => dispatch_sub_action(other, eval),
    }
 }
@@ -252,6 +255,20 @@ pub(super) async fn evaluate_rule_recursive(rule: &RuleState, eval: &mut Eval<'_
          bmetrics::record_action(eval.host, Action::SMEAR);
          smear_response(eval.state, eval.request_uri, eval.user_agent)
             .tagged(&rule.name, Action::SMEAR)
+      },
+      Action::Lure { maze } => {
+         tracing::debug!(rule = rule.name, action = Action::LURE, maze, "rule hit");
+         bmetrics::record_action(eval.host, Action::LURE);
+         if let Some(fragment) = lure_fragment(
+            eval.state,
+            maze,
+            eval.host,
+            eval.ctx.remote_ip,
+            eval.request_uri.path(),
+         ) {
+            eval.challenge_state.injections.push(fragment);
+         }
+         RuleOutcome::Continue
       },
       Action::Report { kind } => {
          tracing::debug!(rule = rule.name, action = Action::REPORT, kind, "rule hit");

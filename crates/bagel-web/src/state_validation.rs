@@ -224,7 +224,7 @@ fn tarpit_maze_known(maze_name: &str, mazes: &[MazeConfig], site: &str) -> error
       Ok(())
    } else {
       Err(error::Error::Config(format!(
-         "{site}: tarpit references unknown maze '{maze_name}'"
+         "{site}: references unknown maze '{maze_name}'"
       )))
    }
 }
@@ -236,7 +236,7 @@ pub fn validate_tarpit_references(
 ) -> error::Result<()> {
    fn walk(rules: &[RuleState], mazes: &[MazeConfig]) -> error::Result<()> {
       for rule in rules {
-         if let Action::Tarpit { maze } = &rule.action {
+         if let Action::Tarpit { maze } | Action::Lure { maze } = &rule.action {
             tarpit_maze_known(maze, mazes, &format!("rule '{}'", rule.name))?;
          }
          walk(&rule.children, mazes)?;
