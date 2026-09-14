@@ -125,9 +125,9 @@ impl KeyBlock {
       to_bytes(&state)
    }
 
-   /// Whether SHA-256(key || nonce) opens with `nibbles` zero hex digits.
+   /// Whether SHA-256(key || nonce) opens with `bits` zero bits.
    #[must_use]
-   pub fn satisfies(&mut self, nonce: u64, nibbles: u32) -> bool {
-      leading_zero_bits(&self.digest(nonce), nibbles * 4)
+   pub fn satisfies(&mut self, nonce: u64, bits: u32) -> bool {
+      leading_zero_bits(&self.digest(nonce), bits)
    }
 }

@@ -64,8 +64,7 @@ impl PowChallenge {
    #[must_use]
    pub const fn difficulty_range(&self) -> RangeInclusive<u32> {
       match self.kind {
-         Kind::Sha256 => 1..=64,
-         Kind::Scratch => 1..=32,
+         Kind::Sha256 | Kind::Scratch => 1..=32,
       }
    }
 
@@ -155,7 +154,7 @@ impl PowChallenge {
             buf.extend_from_slice(&nonce.to_be_bytes());
             let hash = ring::digest::digest(&ring::digest::SHA256, &buf);
             let digest: [u8; 32] = hash.as_ref().try_into().expect("sha256 output is 32 bytes");
-            leading_zero_bits(&digest, difficulty * 4)
+            leading_zero_bits(&digest, difficulty)
          },
          Kind::Scratch => {
             let mut pad = vec![[0_u8; 32]; 1 << self.blocks_log2];

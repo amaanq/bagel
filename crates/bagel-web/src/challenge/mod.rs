@@ -203,7 +203,7 @@ impl ChallengeRegistry {
             },
             runtime @ ("pow-sha256" | "pow-scratch") => {
                let (kind, default_difficulty) = if runtime == "pow-sha256" {
-                  (Kind::Sha256, 4)
+                  (Kind::Sha256, 16)
                } else {
                   (Kind::Scratch, 12)
                };
