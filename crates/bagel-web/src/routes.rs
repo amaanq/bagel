@@ -6,6 +6,9 @@ use std::{
    },
 };
 
+use bagel_solver::codec::unpack_solution;
+use bytes::Bytes;
+use data_encoding::BASE64URL_NOPAD;
 use http::{
    Method,
    StatusCode,
@@ -17,7 +20,6 @@ use http_body_util::{
    BodyExt as _,
    Limited,
 };
-use serde::Deserialize;
 
 use crate::{
    body::{
@@ -60,12 +62,14 @@ use crate::{
 };
 
 const WIDGET_CSS: &str = include_str!("../assets/widget.css");
-const POW_LOADER_MJS: &str = include_str!("../assets/challenge/js-pow-sha256/loader.mjs");
+const RUNTIME_MJS: &str = include_str!("../assets/challenge/runtime.mjs");
+const SOLVER_WASM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/solver.wasm"));
 
 /// The endpoints bagel answers itself, under a prefix no origin owns.
 enum Internal {
    Css,
-   PowLoader,
+   Runtime,
+   Solver,
    Verify(String),
 }
 
@@ -74,7 +78,8 @@ enum Internal {
 fn internal_route(path: &str) -> Option<Internal> {
    match path {
       "/__bagel/static/widget.css" => return Some(Internal::Css),
-      "/__bagel/challenge/pow/loader.mjs" => return Some(Internal::PowLoader),
+      "/__bagel/static/runtime.mjs" => return Some(Internal::Runtime),
+      "/__bagel/static/solver.wasm" => return Some(Internal::Solver),
       _ => {},
    }
    let name = path.strip_prefix("/__bagel/")?.strip_suffix("/verify")?;
@@ -91,23 +96,27 @@ pub async fn dispatch(shared: &SharedState, addr: SocketAddr, req: Request) -> R
    let readable = req.method() == Method::GET || req.method() == Method::HEAD;
    let posted = req.method() == Method::POST;
    match route {
-      Internal::Css if readable => asset(WIDGET_CSS, "text/css; charset=utf-8"),
-      Internal::PowLoader if readable => {
-         asset(POW_LOADER_MJS, "application/javascript; charset=utf-8")
+      Internal::Css if readable => asset(WIDGET_CSS.as_bytes(), "text/css; charset=utf-8"),
+      Internal::Runtime if readable => {
+         asset(
+            RUNTIME_MJS.as_bytes(),
+            "application/javascript; charset=utf-8",
+         )
       },
-      Internal::Css | Internal::PowLoader => method_not_allowed("GET,HEAD"),
+      Internal::Solver if readable => asset(SOLVER_WASM, "application/wasm"),
+      Internal::Css | Internal::Runtime | Internal::Solver => method_not_allowed("GET,HEAD"),
       Internal::Verify(name) if readable => handle_verify(shared, &name, &req),
       Internal::Verify(name) if posted => handle_pow_verify(shared, &name, req).await,
       Internal::Verify(_) => method_not_allowed("GET,HEAD,POST"),
    }
 }
 
-fn asset(content: &'static str, content_type: &'static str) -> Response {
+fn asset(content: &'static [u8], content_type: &'static str) -> Response {
    Response::builder()
       .status(StatusCode::OK)
       .header(header::CONTENT_TYPE, content_type)
       .header(header::CACHE_CONTROL, "public, max-age=86400")
-      .body(Body::from(content))
+      .body(Body::from(Bytes::from_static(content)))
       .expect("static asset response parts are valid")
 }
 
@@ -314,13 +323,8 @@ fn seal_pass(
    }
 }
 
-#[derive(Deserialize)]
-struct PowSolution {
-   nonce:     u64,
-   challenge: String,
-}
-
-/// `PoW` verify handler: POST with JSON { nonce, challenge }.
+/// `PoW` verify handler: POST with the sealed solution the module produced,
+/// base64url in the body.
 async fn handle_pow_verify(shared: &SharedState, challenge_name: &str, req: Request) -> Response {
    let state = shared.load();
 
@@ -338,8 +342,12 @@ async fn handle_pow_verify(shared: &SharedState, challenge_name: &str, req: Requ
       return body::text(StatusCode::BAD_REQUEST, "body too large");
    };
 
-   let Ok(solution) = serde_json::from_slice::<PowSolution>(&collected.to_bytes()) else {
-      return body::text(StatusCode::BAD_REQUEST, "invalid JSON");
+   let Some((presented_key, nonce)) = BASE64URL_NOPAD
+      .decode(collected.to_bytes().trim_ascii())
+      .ok()
+      .and_then(|blob| unpack_solution(&blob))
+   else {
+      return body::text(StatusCode::BAD_REQUEST, "invalid solution");
    };
 
    let Some((challenge_key, _)) = match_recent_key(
@@ -347,7 +355,7 @@ async fn handle_pow_verify(shared: &SharedState, challenge_name: &str, req: Requ
       client_ip,
       reg.duration.as_secs() as i64,
       &state.keys.key_fingerprint,
-      &solution.challenge,
+      &hex_encode(&presented_key),
    ) else {
       return body::text(StatusCode::FORBIDDEN, "invalid challenge key");
    };
@@ -355,7 +363,7 @@ async fn handle_pow_verify(shared: &SharedState, challenge_name: &str, req: Requ
    let ChallengeRuntime::PowSha256(ref pow) = reg.runtime else {
       return body::text(StatusCode::BAD_REQUEST, "not a PoW challenge");
    };
-   if !pow.verify_nonce(&challenge_key, solution.nonce) {
+   if !pow.verify_nonce(&challenge_key, nonce) {
       return body::text(StatusCode::FORBIDDEN, "invalid proof of work");
    }
 
@@ -368,7 +376,7 @@ async fn handle_pow_verify(shared: &SharedState, challenge_name: &str, req: Requ
       },
       challenge_name,
       &challenge_key,
-      solution.nonce.to_be_bytes().to_vec(),
+      nonce.to_be_bytes().to_vec(),
       reg.duration,
    ) {
       Ok(cookie) => cookie,

@@ -9,6 +9,8 @@
   cacert,
   sqlite,
   clang,
+  lld,
+  binaryen,
   wild ? null,
 }:
 let
@@ -44,6 +46,8 @@ rustPlatform.buildRustPackage (finalAttrs: {
   strictDeps = true;
   nativeBuildInputs = [
     pkg-config
+    lld
+    binaryen
   ]
   ++ lib.optionals hasWild [
     wild
@@ -70,6 +74,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
     ''
       install -Dm644 -t $out/share/bagel/corpus ${contrib}/corpus/*.txt
       install -Dm644 -t $out/share/bagel/scripts ${contrib}/rhai/*.rhai
+      rm -r $out/lib
     '';
 
   meta = {

@@ -1,8 +1,14 @@
+use bagel_solver::codec::pack_handoff;
+use data_encoding::BASE64URL_NOPAD;
 use http::{
    StatusCode,
    header,
 };
 use maud::html;
+use ring::rand::{
+   SecureRandom as _,
+   SystemRandom,
+};
 
 use super::types::{
    ChallengeContext,
@@ -26,7 +32,7 @@ use crate::{
    },
 };
 
-const LOADER: &str = "/__bagel/challenge/pow/loader.mjs";
+const RUNTIME: &str = "/__bagel/static/runtime.mjs";
 
 /// SHA-256 proof-of-work challenge.
 /// The client must find a nonce such that SHA-256(key || nonce) has
@@ -47,9 +53,11 @@ impl PowSha256Challenge {
       presentation: Presentation,
       background: bool,
    ) -> Widget {
+      let mut iv = [0_u8; 4];
+      let _ = SystemRandom::new().fill(&mut iv);
+      let difficulty = u8::try_from(self.difficulty).expect("difficulty is validated to 1..=64");
       let loader = LoaderData {
-         challenge: ctx.key_hex.clone(),
-         difficulty: self.difficulty,
+         payload: BASE64URL_NOPAD.encode(&pack_handoff(iv, ctx.challenge_key, difficulty)),
          verify_url: format!("/__bagel/{}/verify", ctx.challenge_name),
          background,
       };
@@ -64,7 +72,7 @@ impl PowSha256Challenge {
          },
       };
 
-      widget.driven_by(LOADER, loader)
+      widget.driven_by(RUNTIME, loader)
    }
 
    /// Renders the challenge page with the solver embedded, so the work runs

@@ -303,6 +303,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bagel-solver"
+version = "1.0.0"
+
+[[package]]
 name = "bagel-traps"
 version = "1.0.0"
 dependencies = [
@@ -322,6 +326,7 @@ dependencies = [
  "bagel-deception",
  "bagel-proto",
  "bagel-runtime",
+ "bagel-solver",
  "bagel-traps",
  "bytes",
  "constant_time_eq",

@@ -1,3 +1,9 @@
+use bagel_solver::codec::{
+   pack_solution,
+   unpack_handoff,
+};
+use data_encoding::BASE64URL_NOPAD;
+
 use super::fixtures::{
    Config,
    *,
@@ -81,13 +87,14 @@ async fn background_pow_solves_on_the_live_page() {
       "solver fragment must be injected: {body}"
    );
 
-   let challenge_hex = regex::Regex::new(r#"data-challenge="([0-9a-f]{64})""#)
+   let payload = regex::Regex::new(r#"data-p="([A-Za-z0-9_-]+)""#)
       .unwrap()
       .captures(&body)
       .map(|caps| caps[1].to_owned())
       .unwrap();
-   let key: Vec<u8> = crate::hex_decode(&challenge_hex).unwrap();
-   let key: [u8; 32] = key.try_into().unwrap();
+   let handoff = BASE64URL_NOPAD.decode(payload.as_bytes()).unwrap();
+   let (key, difficulty) = unpack_handoff(&handoff).unwrap();
+   assert_eq!(difficulty, 1);
    let pow = PowSha256Challenge {
       difficulty: 1,
       embed:      crate::template::Presentation::Hidden,
@@ -100,10 +107,12 @@ async fn background_pow_solves_on_the_live_page() {
       .method(Method::POST)
       .uri("/__bagel/pow/verify")
       .header("host", "example.test")
-      .header("content-type", "application/json")
-      .body(Body::from(format!(
-         r#"{{"nonce":{nonce},"challenge":"{challenge_hex}"}}"#
-      )))
+      .header("content-type", "text/plain")
+      .body(Body::from(BASE64URL_NOPAD.encode(&pack_solution(
+         [7, 7, 7, 7],
+         &key,
+         nonce,
+      ))))
       .unwrap();
    let addr = SocketAddr::from(([127, 0, 0, 1], 40_000));
    req.extensions_mut().insert(addr);
