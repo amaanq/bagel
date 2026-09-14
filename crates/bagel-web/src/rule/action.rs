@@ -33,6 +33,11 @@ pub enum Action {
    },
    /// Serve a deceptive page dribbled out at tarpit pace.
    Smear,
+   /// Append a hidden link into the named maze to the proxied page, then
+   /// continue.
+   Lure {
+      maze: String,
+   },
    /// Proxy to a different backend with optional URL rewrite.
    Proxy {
       match_re: Option<Regex>,
@@ -70,6 +75,7 @@ impl Action {
    pub const CONTEXT: &str = "context";
    pub const DENY: &str = "deny";
    pub const DROP: &str = "drop";
+   pub const LURE: &str = "lure";
    pub const NONE: &str = "none";
    pub const PASS: &str = "pass";
    pub const PROXY: &str = "proxy";
@@ -111,6 +117,14 @@ impl Action {
                .filter(|name| !name.is_empty())
                .ok_or("tarpit action requires a maze")?;
             Self::Tarpit { maze }
+         },
+         Self::LURE => {
+            let maze = settings
+               .maze
+               .clone()
+               .filter(|name| !name.is_empty())
+               .ok_or("lure action requires a maze")?;
+            Self::Lure { maze }
          },
          Self::SMEAR => {
             if settings
@@ -202,6 +216,7 @@ impl Action {
          Self::Drop => Self::DROP,
          Self::Tarpit { .. } => Self::TARPIT,
          Self::Smear => Self::SMEAR,
+         Self::Lure { .. } => Self::LURE,
          Self::Proxy { .. } => Self::PROXY,
          Self::Context { .. } => Self::CONTEXT,
          Self::Challenge(_) => Self::CHALLENGE,

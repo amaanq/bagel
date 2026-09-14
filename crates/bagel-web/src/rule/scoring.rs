@@ -78,7 +78,7 @@ pub struct ScoreResult<'a> {
    pub candidate: Option<&'a ThresholdState>,
 }
 
-const FORBIDDEN_THRESHOLD_ACTIONS: [&str; 4] = ["none", "context", "check", "pass"];
+const FORBIDDEN_THRESHOLD_ACTIONS: [&str; 5] = ["none", "context", "check", "pass", "lure"];
 
 impl ScoringState {
    pub fn build(

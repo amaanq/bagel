@@ -269,9 +269,9 @@ only happens after rule evaluation returns Continue.
 A terminal rule suppresses the candidate. Terminal actions are pass, deny,
 block, code, drop, proxy, a handled challenge, and any child result that
 produces a response or a connection drop, which means a broad pass rule is an
-allowlist that disables scorecard enforcement for whatever it matches. Context
-and Check keep their continuation behavior through explicit `RuleOutcome`
-values.
+allowlist that disables scorecard enforcement for whatever it matches. Context,
+Check, Report and Lure keep their continuation behavior through explicit
+`RuleOutcome` values.
 
 Observation mode calculates the same candidate and then never applies it.
 Existing rules, direct maze requests and direct tarpit rules stay live in that
@@ -297,6 +297,19 @@ original request. When a child returns a response, the configured response
 headers are applied on the way out, and when the subtree returns Continue no
 response headers are emitted. Invalid header names and values are config errors
 rather than being silently discarded.
+
+### Lure
+
+`action="lure" maze="default"` continues to the next rule and, when the
+request ends up proxied and the origin answers with uncompressed HTML, appends
+a `hidden` `nofollow` anchor into the named maze. The link carries a token
+bound to the visitor's source network, so following it later counts as a valid
+return and sets `poison["returned"]` for that network, the same as walking in
+from a tarpit page. Browsers never navigate a hidden link and verified crawlers
+honor `nofollow`, so place the rule after the pass rules for search engines
+and previews. A request with a pending lure or check widget is proxied without
+`Accept-Encoding`, since compressed bodies can't be appended to. Lure is not
+allowed as a threshold action.
 
 ### Drop
 

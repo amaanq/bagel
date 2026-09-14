@@ -446,6 +446,9 @@ async fn finalize_response(
    *req.uri_mut() = cleaned_uri;
 
    crate::server::pipeline_evaluate::strip_bagel_cookies(&mut req, host);
+   if !challenge_state.injections.is_empty() {
+      req.headers_mut().remove(header::ACCEPT_ENCODING);
+   }
 
    let mut resp = match final_response {
       Some(rule_resp) => {

@@ -214,6 +214,36 @@ fn maze_envelope(html: String, head_only: bool) -> Response {
       .expect("static maze response headers are valid")
 }
 
+/// A hidden anchor into the maze, bound to the visitor's source network so a
+/// follow-up from that network reads as a poison return. Real browsers never
+/// navigate a `hidden` `nofollow` link, crawlers that parse anchors do.
+pub fn lure_fragment(
+   state: &StateInner,
+   maze_name: &str,
+   host: &str,
+   client_ip: Option<IpAddr>,
+   page_path: &str,
+) -> Option<String> {
+   let runtime = state.maze_by_name(host, maze_name)?;
+   let keys = &runtime.keys;
+   let seed = maze::render::page_seed(&keys.render_key, page_path.as_bytes());
+   let budget = maze::render::RenderBudget {
+      min_links: 1,
+      max_links: 1,
+      min_bytes: 0,
+      max_bytes: 0,
+   };
+   let path = maze::render::plan_links(seed, &budget).into_iter().next()?;
+   let source = client_ip.map(SourceNetwork::from_ip);
+   let expires = unix_timestamp().cast_unsigned() + runtime.config.token_ttl.as_secs();
+   let token = maze::token::mint(keys, &path, source, expires);
+   Some(format!(
+      "<div hidden><a href=\"/{}/{token}/{path}\" rel=\"nofollow\" \
+       tabindex=\"-1\">{path}</a></div>",
+      keys.route_prefix
+   ))
+}
+
 pub async fn tarpit_response(
    state: &StateInner,
    maze_name: &str,
