@@ -22,8 +22,9 @@ const H0: [u32; 8] = [
 )]
 fn compress(state: &mut [u32; 8], block: &[u8; 64]) {
    let mut w = [0_u32; 64];
-   for (word, chunk) in w.iter_mut().zip(block.chunks_exact(4)) {
-      *word = u32::from_be_bytes(chunk.try_into().expect("chunks_exact yields four bytes"));
+   let (chunks, _) = block.as_chunks::<4>();
+   for (word, chunk) in w.iter_mut().zip(chunks) {
+      *word = u32::from_be_bytes(*chunk);
    }
    for i in 16..64 {
       let s0 = w[i - 15].rotate_right(7) ^ w[i - 15].rotate_right(18) ^ (w[i - 15] >> 3);
@@ -64,21 +65,25 @@ fn compress(state: &mut [u32; 8], block: &[u8; 64]) {
 #[must_use]
 pub fn hash_pair(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
    let mut block = [0_u8; 64];
-   block[..32].copy_from_slice(left);
-   block[32..].copy_from_slice(right);
+   for (slot, byte) in block.iter_mut().zip(left.iter().chain(right)) {
+      *slot = *byte;
+   }
    let mut state = H0;
    compress(&mut state, &block);
    let mut tail = [0_u8; 64];
    tail[0] = 0x80;
-   tail[62..].copy_from_slice(&(64_u16 * 8).to_be_bytes());
+   [tail[62], tail[63]] = (64_u16 * 8).to_be_bytes();
    compress(&mut state, &tail);
    to_bytes(&state)
 }
 
 fn to_bytes(state: &[u32; 8]) -> [u8; 32] {
    let mut out = [0_u8; 32];
-   for (chunk, word) in out.chunks_exact_mut(4).zip(state) {
-      chunk.copy_from_slice(&word.to_be_bytes());
+   for (slot, byte) in out
+      .iter_mut()
+      .zip(state.iter().flat_map(|word| word.to_be_bytes()))
+   {
+      *slot = byte;
    }
    out
 }
@@ -110,16 +115,20 @@ impl KeyBlock {
    #[must_use]
    pub fn new(key: &[u8; 32]) -> Self {
       let mut block = [0_u8; 64];
-      block[..32].copy_from_slice(key);
+      for (slot, byte) in block.iter_mut().zip(key) {
+         *slot = *byte;
+      }
       block[40] = 0x80;
-      block[62..].copy_from_slice(&(40_u16 * 8).to_be_bytes());
+      [block[62], block[63]] = (40_u16 * 8).to_be_bytes();
       Self { block }
    }
 
    /// SHA-256(key || nonce).
    #[must_use]
    pub fn digest(&mut self, nonce: u64) -> [u8; 32] {
-      self.block[32..40].copy_from_slice(&nonce.to_be_bytes());
+      for (slot, byte) in self.block.iter_mut().skip(32).zip(nonce.to_be_bytes()) {
+         *slot = byte;
+      }
       let mut state = H0;
       compress(&mut state, &self.block);
       to_bytes(&state)

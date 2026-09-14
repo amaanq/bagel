@@ -12,9 +12,15 @@ use crate::{
 };
 
 const PAD_BLOCKS: usize = 1 << scratch::MAX_BLOCKS_LOG2;
+const BUF_LEN: usize = 64;
+
+const _: () = assert!(
+   codec::SOLUTION_LEN <= BUF_LEN,
+   "the sealed solution has to fit in the handoff buffer"
+);
 
 struct State {
-   buf:     [u8; 64],
+   buf:     [u8; BUF_LEN],
    handoff: Handoff,
    pad:     [[u8; 32]; PAD_BLOCKS],
 }
@@ -25,7 +31,7 @@ struct Shared(UnsafeCell<State>);
 unsafe impl Sync for Shared {}
 
 static STATE: Shared = Shared(UnsafeCell::new(State {
-   buf:     [0; 64],
+   buf:     [0; BUF_LEN],
    handoff: Handoff {
       key:         [0; codec::KEY_LEN],
       kind:        Kind::Sha256,
@@ -95,7 +101,9 @@ pub extern "C" fn seal(nonce: u64, iv: u32) -> u32 {
       difficulty: st.handoff.difficulty,
    };
    let sealed = codec::pack_solution(iv.to_le_bytes(), &solution);
-   st.buf[..codec::SOLUTION_LEN].copy_from_slice(&sealed);
+   for (slot, byte) in st.buf.iter_mut().zip(sealed) {
+      *slot = byte;
+   }
    codec::SOLUTION_LEN as u32
 }
 

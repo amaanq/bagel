@@ -1,9 +1,50 @@
 use std::{
    env,
    fs,
-   path::PathBuf,
+   path::{
+      Path,
+      PathBuf,
+   },
    process::Command,
 };
+
+/// Rewrite a module without its custom sections. `wasm-opt` keeps
+/// `target_features`, and nixpkgs builds with cargo-auditable, which injects a
+/// `.dep-v0` section naming the crate and its version. Neither belongs in a
+/// module served to every visitor.
+fn strip_custom_sections(path: &Path) {
+   let module = fs::read(path).expect("read the solver module");
+   let (header, mut rest) = module.split_at(8);
+   let mut out = header.to_vec();
+
+   while let Some((&id, tail)) = rest.split_first() {
+      let mut size = 0_usize;
+      let mut shift = 0;
+      let mut read = 0;
+      loop {
+         let byte = tail[read];
+         assert!(
+            shift < usize::BITS,
+            "solver module has a malformed section length"
+         );
+         size |= usize::from(byte & 0x7F) << shift;
+         shift += 7;
+         read += 1;
+         if byte & 0x80 == 0 {
+            break;
+         }
+      }
+      let (payload, next) = tail[read..].split_at(size);
+      if id != 0 {
+         out.push(id);
+         out.extend_from_slice(&tail[..read]);
+         out.extend_from_slice(payload);
+      }
+      rest = next;
+   }
+
+   fs::write(path, out).expect("write the stripped solver module");
+}
 
 /// The browser solver is a wasm build of `bagel-solver`, embedded into the
 /// binary. `BAGEL_SOLVER_WASM` points at a prebuilt module.
@@ -15,6 +56,7 @@ fn main() {
    if let Ok(prebuilt) = env::var("BAGEL_SOLVER_WASM") {
       println!("cargo:rerun-if-changed={prebuilt}");
       fs::copy(&prebuilt, &dest).expect("copy prebuilt solver module");
+      strip_custom_sections(&dest);
       return;
    }
 
@@ -71,4 +113,6 @@ fn main() {
          fs::copy(&built, &dest).expect("copy built solver module");
       },
    }
+
+   strip_custom_sections(&dest);
 }

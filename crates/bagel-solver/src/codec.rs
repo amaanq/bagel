@@ -50,7 +50,7 @@ pub struct Solution {
    pub difficulty: u8,
 }
 
-fn keystream(iv: [u8; IV_LEN], data: &mut [u8]) {
+fn keystream<'a>(iv: [u8; IV_LEN], data: impl IntoIterator<Item = &'a mut u8>) {
    let mut state = u32::from_le_bytes(iv) | 1;
    for byte in data {
       state ^= state << 13;
@@ -62,24 +62,33 @@ fn keystream(iv: [u8; IV_LEN], data: &mut [u8]) {
 
 #[must_use]
 pub fn pack_handoff(iv: [u8; IV_LEN], handoff: &Handoff) -> [u8; HANDOFF_LEN] {
+   const _: () = assert!(
+      IV_LEN + KEY_LEN + 3 == HANDOFF_LEN,
+      "pack_handoff writes three tail bytes"
+   );
    let mut out = [0_u8; HANDOFF_LEN];
-   out[..IV_LEN].copy_from_slice(&iv);
-   out[IV_LEN..IV_LEN + KEY_LEN].copy_from_slice(&handoff.key);
-   out[IV_LEN + KEY_LEN] = handoff.kind.tag();
-   out[IV_LEN + KEY_LEN + 1] = handoff.difficulty;
-   out[IV_LEN + KEY_LEN + 2] = handoff.blocks_log2;
-   keystream(iv, &mut out[IV_LEN..]);
+   let tail = [handoff.kind.tag(), handoff.difficulty, handoff.blocks_log2];
+   for (slot, byte) in out
+      .iter_mut()
+      .zip(iv.into_iter().chain(handoff.key).chain(tail))
+   {
+      *slot = byte;
+   }
+   keystream(iv, out.iter_mut().skip(IV_LEN));
    out
 }
 
 #[must_use]
 pub fn unpack_handoff(blob: &[u8]) -> Option<Handoff> {
    let blob: &[u8; HANDOFF_LEN] = blob.try_into().ok()?;
+   let (&iv, sealed) = blob.split_first_chunk::<IV_LEN>()?;
    let mut body = [0_u8; HANDOFF_LEN - IV_LEN];
-   body.copy_from_slice(&blob[IV_LEN..]);
-   keystream(blob[..IV_LEN].try_into().ok()?, &mut body);
+   for (slot, byte) in body.iter_mut().zip(sealed) {
+      *slot = *byte;
+   }
+   keystream(iv, &mut body);
    Some(Handoff {
-      key:         body[..KEY_LEN].try_into().ok()?,
+      key:         *body.first_chunk::<KEY_LEN>()?,
       kind:        Kind::from_tag(body[KEY_LEN])?,
       difficulty:  body[KEY_LEN + 1],
       blocks_log2: body[KEY_LEN + 2],
@@ -88,24 +97,36 @@ pub fn unpack_handoff(blob: &[u8]) -> Option<Handoff> {
 
 #[must_use]
 pub fn pack_solution(iv: [u8; IV_LEN], solution: &Solution) -> [u8; SOLUTION_LEN] {
+   const _: () = assert!(
+      IV_LEN + KEY_LEN + 8 + 1 == SOLUTION_LEN,
+      "pack_solution writes an eight byte nonce and one difficulty byte"
+   );
    let mut out = [0_u8; SOLUTION_LEN];
-   out[..IV_LEN].copy_from_slice(&iv);
-   out[IV_LEN..IV_LEN + KEY_LEN].copy_from_slice(&solution.key);
-   out[IV_LEN + KEY_LEN..IV_LEN + KEY_LEN + 8].copy_from_slice(&solution.nonce.to_be_bytes());
-   out[IV_LEN + KEY_LEN + 8] = solution.difficulty;
-   keystream(iv, &mut out[IV_LEN..]);
+   for (slot, byte) in out.iter_mut().zip(
+      iv.into_iter()
+         .chain(solution.key)
+         .chain(solution.nonce.to_be_bytes())
+         .chain([solution.difficulty]),
+   ) {
+      *slot = byte;
+   }
+   keystream(iv, out.iter_mut().skip(IV_LEN));
    out
 }
 
 #[must_use]
 pub fn unpack_solution(blob: &[u8]) -> Option<Solution> {
    let blob: &[u8; SOLUTION_LEN] = blob.try_into().ok()?;
+   let (&iv, sealed) = blob.split_first_chunk::<IV_LEN>()?;
    let mut body = [0_u8; SOLUTION_LEN - IV_LEN];
-   body.copy_from_slice(&blob[IV_LEN..]);
-   keystream(blob[..IV_LEN].try_into().ok()?, &mut body);
+   for (slot, byte) in body.iter_mut().zip(sealed) {
+      *slot = *byte;
+   }
+   keystream(iv, &mut body);
+   let (&key, rest) = body.split_first_chunk::<KEY_LEN>()?;
    Some(Solution {
-      key:        body[..KEY_LEN].try_into().ok()?,
-      nonce:      u64::from_be_bytes(body[KEY_LEN..KEY_LEN + 8].try_into().ok()?),
+      key,
+      nonce: u64::from_be_bytes(*rest.first_chunk::<8>()?),
       difficulty: body[KEY_LEN + 8],
    })
 }
