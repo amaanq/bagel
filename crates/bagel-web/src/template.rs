@@ -68,10 +68,10 @@ pub enum Presentation {
    Hidden,
 }
 
-/// What the bundled loader reads off the host element to drive a challenge.
+/// What the bundled runtime reads off the host element to drive a challenge.
 pub struct LoaderData {
-   pub challenge:  String,
-   pub difficulty: u32,
+   /// Opaque handoff the solver module unpacks itself.
+   pub payload:    String,
    pub verify_url: String,
    /// Solve on the live page instead of reloading once verified.
    pub background: bool,
@@ -250,9 +250,8 @@ fn host(widget: &Widget, shadow: Option<&Markup>) -> Markup {
    html! {
       bagel-challenge
          hidden[hidden]
-         data-challenge=[loader.map(|data| &data.challenge)]
-         data-difficulty=[loader.map(|data| data.difficulty)]
-         data-verify-url=[loader.map(|data| &data.verify_url)]
+         data-p=[loader.map(|data| &data.payload)]
+         data-v=[loader.map(|data| &data.verify_url)]
          data-mode=[loader.and_then(|data| data.background.then_some("background"))]
       {
          @match shadow {

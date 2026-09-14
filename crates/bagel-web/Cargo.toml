@@ -17,6 +17,7 @@ bagel-core.workspace      = true
 bagel-deception.workspace = true
 bagel-proto.workspace     = true
 bagel-runtime.workspace   = true
+bagel-solver.workspace    = true
 bagel-traps.workspace     = true
 ipnetwork.workspace       = true
 

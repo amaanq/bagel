@@ -8,6 +8,8 @@
   rust-analyzer,
   rustfmt,
   clippy,
+  lld,
+  binaryen,
   openssl,
   sqlite,
   rustPlatform,
@@ -25,6 +27,8 @@ mkShell {
     rust-analyzer
     rustfmt
     clippy
+    lld
+    binaryen
   ]
   ++ extraPackages;
 

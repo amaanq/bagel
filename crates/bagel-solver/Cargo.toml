@@ -1,0 +1,13 @@
+[package]
+name                   = "bagel-solver"
+description            = "Bagel proof-of-work solver and challenge codec, built to wasm for the browser"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+authors.workspace      = true
+
+[lib]
+crate-type = [ "cdylib", "rlib" ]
+
+[lints]
+workspace = true

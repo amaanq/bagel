@@ -66,6 +66,7 @@ bagel-core      = { path = "crates/bagel-core" }
 bagel-deception = { path = "crates/bagel-deception" }
 bagel-proto     = { path = "crates/bagel-proto" }
 bagel-runtime   = { path = "crates/bagel-runtime" }
+bagel-solver    = { path = "crates/bagel-solver" }
 bagel-traps     = { path = "crates/bagel-traps" }
 bagel-web       = { path = "crates/bagel-web" }
 
@@ -73,6 +74,11 @@ bagel-web       = { path = "crates/bagel-web" }
 codegen-units = 1
 lto           = "thin"
 strip         = true
+
+[profile.solver]
+inherits  = "release"
+lto       = "fat"
+opt-level = "z"
 
 [workspace.lints.clippy]
 cargo    = { level = "warn", priority = -1 }
