@@ -176,6 +176,13 @@ pub fn validate_web_trust(web: &web::Config) -> Result<()> {
                .into(),
          ));
       }
+      if web.client_tls_header.is_some() {
+         return Err(Error::Config(
+            "client-tls-header requires trusted-proxies, an untrusted forwarding header never \
+             supplies a fingerprint"
+               .into(),
+         ));
+      }
       if web.bind.proxy_protocol {
          return Err(Error::Config(
             "bind proxy-protocol requires trusted-proxies so only listed peers can supply a \

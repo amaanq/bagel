@@ -209,6 +209,9 @@ impl ConditionContext {
             if !tls_fp.ja4.is_empty() {
                map.insert("ja4".to_owned(), tls_fp.ja4.clone());
             }
+            if !tls_fp.proxied.is_empty() {
+               map.insert("proxied".to_owned(), tls_fp.proxied.clone());
+            }
             map
          })
          .unwrap_or_default();
