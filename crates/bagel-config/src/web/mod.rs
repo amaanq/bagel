@@ -270,6 +270,7 @@ pub struct Config {
    pub challenge_http_code:      u16,
    pub cache_dir:                Option<String>,
    pub client_ip_header:         Option<String>,
+   pub client_tls_header:        Option<String>,
    pub trusted_proxies:          Option<Vec<String>>,
    pub backends:                 Vec<BackendConfig>,
    pub policy:                   PolicyConfig,
@@ -293,6 +294,7 @@ impl Default for Config {
          challenge_http_code:      418,
          cache_dir:                None,
          client_ip_header:         None,
+         client_tls_header:        None,
          trusted_proxies:          None,
          backends:                 Vec::new(),
          policy:                   PolicyConfig::default(),
@@ -369,6 +371,10 @@ impl Config {
          "client-ip-header" => {
             let Argument(header) = decode_node::<Argument<String>>(node)?;
             self.client_ip_header = Some(header);
+         },
+         "client-tls-header" => {
+            let Argument(header) = decode_node::<Argument<String>>(node)?;
+            self.client_tls_header = Some(header);
          },
          "trusted-proxies" => {
             let Arguments(proxies) = decode_node::<Arguments<String>>(node)?;

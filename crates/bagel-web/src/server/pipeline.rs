@@ -67,6 +67,10 @@ use crate::{
       StateInner,
    },
    template,
+   tls::{
+      TlsFingerprint,
+      fingerprint::proxied_fingerprint,
+   },
 };
 
 /// Main request handler: evaluate challenges, rules, then proxy to backend.
@@ -95,6 +99,22 @@ pub async fn handle_request(shared: &SharedState, addr: SocketAddr, mut req: Req
    if let Some(ip) = client_ip {
       req.extensions_mut()
          .insert(SocketAddr::new(ip, addr.port()));
+   }
+   if let Some(name) = state.config.client_tls_header.as_deref()
+      && state.policy.client_ip.trusts(addr.ip())
+      && let Some(proxied) = req
+         .headers()
+         .get(name)
+         .and_then(|value| value.to_str().ok())
+         .and_then(proxied_fingerprint)
+   {
+      let mut fp = req
+         .extensions()
+         .get::<TlsFingerprint>()
+         .cloned()
+         .unwrap_or_default();
+      fp.proxied = proxied;
+      req.extensions_mut().insert(fp);
    }
 
    let Some(backend) = state.runtime.backends.select(&host) else {
@@ -291,6 +311,8 @@ pub async fn handle_request(shared: &SharedState, addr: SocketAddr, mut req: Req
       rate_10s = ctx.rate.map_or(0, |snap| snap.last_10s),
       rate_60s = ctx.rate.map_or(0, |snap| snap.last_60s),
       poison_returned = ctx.poison_returned,
+      fp_ja4 = ctx.fp.get("ja4"),
+      fp_proxied = ctx.fp.get("proxied"),
       candidate_threshold = candidate.map(|threshold| threshold.value),
       candidate_action = candidate.map(|threshold| threshold.kind),
       candidate_status,

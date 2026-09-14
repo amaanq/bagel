@@ -95,7 +95,7 @@ The rest are maps.
 | Binding    | Keys                            | Value                                                                      |
 | ---------- | ------------------------------- | -------------------------------------------------------------------------- |
 | `headers`  | Lowercase header name           | Header value, empty when the value is not valid UTF-8                      |
-| `fp`       | `ja4`                           | TLS fingerprint of the handshake                                           |
+| `fp`       | `ja4`, `proxied`                | TLS fingerprint of the handshake, native or relayed by a trusted proxy     |
 | `networks` | Configured network name         | True when the client IP falls inside that network                          |
 | `rate`     | `available`, `1s`, `10s`, `60s` | Normal request counts for this host and source network                     |
 | `poison`   | `returned`                      | True when a maze on this host holds an active entry for the source network |
@@ -108,6 +108,16 @@ there. `fp` only carries a key when the connection produced a fingerprint, so
 it's empty on plaintext connections, and `networks` is only populated when a
 client IP resolves, which means a condition indexing a network name finds no
 entry rather than false.
+
+`fp["ja4"]` needs bagel to terminate TLS itself. Behind a TLS-terminating
+proxy, `client-tls-header` names a header that trusted proxies fill with
+`$ssl_protocol;$ssl_ciphers;$ssl_curves;$ssl_alpn_protocol`, and bagel digests
+it into `fp["proxied"]`, a `p{version}{ciphers}{curves}{alpn}_{hash}_{hash}`
+string with GREASE removed so Chrome hashes stably. It's a coarser signal than
+JA4 because nginx exposes no extension list, but it still separates HTTP
+libraries from browsers, and the value is logged on every decision line as
+`fp_proxied` so a browser allowlist can be read off real traffic. Like
+`client-ip-header`, it requires `trusted-proxies`.
 
 `lease["active"]` is false unless the daemon has attached its defense plane. It
 matches the whole lease network rather than one address, and leases whose

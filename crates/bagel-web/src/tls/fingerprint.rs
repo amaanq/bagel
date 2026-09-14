@@ -1,7 +1,67 @@
 /// TLS `ClientHello` fingerprint data.
 #[derive(Clone, Default)]
 pub struct TlsFingerprint {
-   pub ja4: String,
+   pub ja4:     String,
+   /// Digest of what a trusted TLS-terminating proxy relayed about the
+   /// handshake, empty when none did.
+   pub proxied: String,
+}
+
+/// Digest a `protocol;ciphers;curves;alpn` header relayed by the proxy.
+///
+/// The value is what nginx renders from `$ssl_protocol`, `$ssl_ciphers`,
+/// `$ssl_curves` and `$ssl_alpn_protocol`. GREASE entries are dropped
+/// because Chrome randomizes them per handshake.
+#[must_use]
+pub fn proxied_fingerprint(value: &str) -> Option<String> {
+   let mut parts = value.split(';');
+   let protocol = parts.next()?.trim();
+   let ciphers = normalize_list(parts.next()?);
+   let curves = normalize_list(parts.next()?);
+   let alpn = parts.next().map(str::trim).unwrap_or_default();
+   if protocol.is_empty() || ciphers.is_empty() {
+      return None;
+   }
+   let version = match protocol {
+      "TLSv1.3" => "13",
+      "TLSv1.2" => "12",
+      "TLSv1.1" => "11",
+      "TLSv1" => "10",
+      _ => "00",
+   };
+   let alpn_tag = match alpn {
+      "" => "00".to_owned(),
+      tag if tag.len() >= 2 => tag[..2].to_owned(),
+      tag => format!("{tag:0<2}"),
+   };
+   let cipher_hash = &hex_encode(
+      ring::digest::digest(&ring::digest::SHA256, ciphers.join(":").as_bytes()).as_ref(),
+   )[..12];
+   let curve_hash = &hex_encode(
+      ring::digest::digest(&ring::digest::SHA256, curves.join(":").as_bytes()).as_ref(),
+   )[..12];
+   Some(format!(
+      "p{version}{:02}{:02}{alpn_tag}_{cipher_hash}_{curve_hash}",
+      ciphers.len().min(99),
+      curves.len().min(99)
+   ))
+}
+
+fn normalize_list(list: &str) -> Vec<&str> {
+   let mut items: Vec<&str> = list
+      .split(':')
+      .map(str::trim)
+      .filter(|item| !item.is_empty() && !is_grease_name(item))
+      .collect();
+   items.sort_unstable();
+   items
+}
+
+fn is_grease_name(item: &str) -> bool {
+   let Some(hex) = item.strip_prefix("0x").or_else(|| item.strip_prefix("0X")) else {
+      return false;
+   };
+   u16::from_str_radix(hex, 16).is_ok_and(is_grease)
 }
 
 /// Parsed fields from a TLS `ClientHello` needed for fingerprinting.

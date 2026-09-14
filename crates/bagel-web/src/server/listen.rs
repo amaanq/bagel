@@ -252,7 +252,8 @@ async fn serve_stream(
       fill_client_hello(&mut peek_stream).await;
       parse_client_hello(peek_stream.peeked_data()).map(|fields| {
          TlsFingerprint {
-            ja4: fields.compute_ja4(),
+            ja4:     fields.compute_ja4(),
+            proxied: String::new(),
          }
       })
    };
