@@ -52,6 +52,9 @@ pub struct TokenChallenge {
    /// Optional verification result data.
    #[serde(with = "base64_bytes", default, skip_serializing_if = "Vec::is_empty")]
    pub result: Vec<u8>,
+   /// Difficulty this pass was verified at, zero for challenges without one.
+   #[serde(default, skip_serializing_if = "is_zero")]
+   pub level:  u32,
    pub ok:     bool,
    /// Expiry time (Unix epoch seconds).
    pub exp:    i64,
@@ -59,6 +62,14 @@ pub struct TokenChallenge {
    pub nbf:    i64,
    /// Issued-at time (Unix epoch seconds).
    pub iat:    i64,
+}
+
+#[expect(
+   clippy::trivially_copy_pass_by_ref,
+   reason = "serde skip_serializing_if hands over a reference"
+)]
+const fn is_zero(level: &u32) -> bool {
+   *level == 0
 }
 
 /// The full token payload stored in the encrypted cookie.

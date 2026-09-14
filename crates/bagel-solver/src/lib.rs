@@ -4,6 +4,7 @@
 #![cfg_attr(target_arch = "wasm32", no_std)]
 
 pub mod codec;
+pub mod scratch;
 pub mod sha256;
 
 #[cfg(target_arch = "wasm32")] mod exports;

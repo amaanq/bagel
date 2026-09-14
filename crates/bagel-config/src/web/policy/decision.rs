@@ -29,6 +29,8 @@ pub(super) struct RuleInput {
    maze:        Option<String>,
    #[knead(property)]
    kind:        Option<String>,
+   #[knead(property)]
+   difficulty:  Option<u32>,
    #[knead(children)]
    children:    Vec<RuleChild>,
 }
@@ -51,6 +53,7 @@ enum RuleChild {
    Match(#[knead(argument)] String),
    Rewrite(#[knead(argument)] String),
    Kind(#[knead(argument)] String),
+   Difficulty(#[knead(argument)] u32),
    RequestHeaders(Headers),
    ResponseHeaders(Headers),
    Rule(Box<RuleInput>),
@@ -96,6 +99,7 @@ impl From<RuleInput> for RuleConfig {
             backend: input.backend,
             maze: input.maze,
             kind: input.kind,
+            difficulty: input.difficulty,
             ..RuleSettings::default()
          },
          children:   Vec::new(),
@@ -112,6 +116,7 @@ impl From<RuleInput> for RuleConfig {
             RuleChild::Match(pattern) => rule.settings.match_re = Some(pattern),
             RuleChild::Rewrite(rewrite) => rule.settings.rewrite = Some(rewrite),
             RuleChild::Kind(kind) => rule.settings.kind = Some(kind),
+            RuleChild::Difficulty(difficulty) => rule.settings.difficulty = Some(difficulty),
             RuleChild::RequestHeaders(headers) => {
                rule.settings.request_headers = headers.into_pairs();
             },
@@ -147,6 +152,8 @@ pub(super) struct ThresholdInput {
    maze:        Option<String>,
    #[knead(property)]
    kind:        Option<String>,
+   #[knead(property)]
+   difficulty:  Option<u32>,
    #[knead(children)]
    children:    Vec<ThresholdChild>,
 }
@@ -157,6 +164,7 @@ enum ThresholdChild {
    HttpCode(#[knead(argument)] u16),
    PassAction(#[knead(argument)] String),
    FailAction(#[knead(argument)] String),
+   Difficulty(#[knead(argument)] u32),
 }
 
 impl From<ThresholdInput> for ThresholdConfig {
@@ -174,6 +182,7 @@ impl From<ThresholdInput> for ThresholdConfig {
             backend: input.backend,
             maze: input.maze,
             kind: input.kind,
+            difficulty: input.difficulty,
             ..RuleSettings::default()
          },
       };
@@ -183,6 +192,9 @@ impl From<ThresholdInput> for ThresholdConfig {
             ThresholdChild::HttpCode(code) => threshold.settings.http_code = Some(code),
             ThresholdChild::PassAction(action) => threshold.settings.pass_action = Some(action),
             ThresholdChild::FailAction(action) => threshold.settings.fail_action = Some(action),
+            ThresholdChild::Difficulty(difficulty) => {
+               threshold.settings.difficulty = Some(difficulty);
+            },
          }
       }
       threshold

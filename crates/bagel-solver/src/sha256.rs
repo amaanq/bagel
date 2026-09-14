@@ -60,6 +60,46 @@ fn compress(state: &mut [u32; 8], block: &[u8; 64]) {
    }
 }
 
+/// SHA-256 of two 32 byte inputs, which fills one block and pads a second.
+#[must_use]
+pub fn hash_pair(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
+   let mut block = [0_u8; 64];
+   block[..32].copy_from_slice(left);
+   block[32..].copy_from_slice(right);
+   let mut state = H0;
+   compress(&mut state, &block);
+   let mut tail = [0_u8; 64];
+   tail[0] = 0x80;
+   tail[62..].copy_from_slice(&(64_u16 * 8).to_be_bytes());
+   compress(&mut state, &tail);
+   to_bytes(&state)
+}
+
+fn to_bytes(state: &[u32; 8]) -> [u8; 32] {
+   let mut out = [0_u8; 32];
+   for (chunk, word) in out.chunks_exact_mut(4).zip(state) {
+      chunk.copy_from_slice(&word.to_be_bytes());
+   }
+   out
+}
+
+/// Whether the digest opens with at least `bits` zero bits.
+#[must_use]
+pub fn leading_zero_bits(digest: &[u8; 32], bits: u32) -> bool {
+   let mut remaining = bits;
+   for byte in digest {
+      if remaining == 0 {
+         return true;
+      }
+      let zeros = byte.leading_zeros();
+      if zeros < remaining.min(8) {
+         return false;
+      }
+      remaining = remaining.saturating_sub(8);
+   }
+   remaining == 0
+}
+
 /// One padded block holding `key || nonce`, so each attempt only rewrites
 /// the nonce bytes and compresses once.
 pub struct KeyBlock {
@@ -76,23 +116,18 @@ impl KeyBlock {
       Self { block }
    }
 
-   /// Whether SHA-256(key || nonce) opens with `nibbles` zero hex digits.
+   /// SHA-256(key || nonce).
    #[must_use]
-   pub fn satisfies(&mut self, nonce: u64, nibbles: u32) -> bool {
+   pub fn digest(&mut self, nonce: u64) -> [u8; 32] {
       self.block[32..40].copy_from_slice(&nonce.to_be_bytes());
       let mut state = H0;
       compress(&mut state, &self.block);
-      let mut remaining = nibbles;
-      for word in state {
-         if remaining == 0 {
-            return true;
-         }
-         let zeros = word.leading_zeros() / 4;
-         if zeros < remaining.min(8) {
-            return false;
-         }
-         remaining = remaining.saturating_sub(8);
-      }
-      true
+      to_bytes(&state)
+   }
+
+   /// Whether SHA-256(key || nonce) opens with `nibbles` zero hex digits.
+   #[must_use]
+   pub fn satisfies(&mut self, nonce: u64, nibbles: u32) -> bool {
+      leading_zero_bits(&self.digest(nonce), nibbles * 4)
    }
 }

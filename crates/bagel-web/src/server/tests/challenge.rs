@@ -1,4 +1,6 @@
 use bagel_solver::codec::{
+   Kind,
+   Solution,
    pack_solution,
    unpack_handoff,
 };
@@ -66,7 +68,7 @@ async fn pow_interstitial_cookie_grants_no_pass() {
 
 #[tokio::test]
 async fn background_pow_solves_on_the_live_page() {
-   use crate::challenge::pow_sha256::PowSha256Challenge;
+   use crate::challenge::pow::PowChallenge;
 
    let main = spawn_html_echo("main").await;
    let app = Config::wildcard(main).policy(r#"challenges { challenge "pow" runtime="pow-sha256" difficulty=1 duration=3600 } rules { rule "background" condition="!path.starts_with(\"/wall\")" action="check" { challenges "pow" }; rule "wall" condition="path.starts_with(\"/wall\")" action="challenge" { challenges "pow" } }"#).shared().await;
@@ -92,27 +94,31 @@ async fn background_pow_solves_on_the_live_page() {
       .captures(&body)
       .map(|caps| caps[1].to_owned())
       .unwrap();
-   let handoff = BASE64URL_NOPAD.decode(payload.as_bytes()).unwrap();
-   let (key, difficulty) = unpack_handoff(&handoff).unwrap();
-   assert_eq!(difficulty, 1);
-   let pow = PowSha256Challenge {
-      difficulty: 1,
-      embed:      crate::template::Presentation::Hidden,
+   let handoff = unpack_handoff(&BASE64URL_NOPAD.decode(payload.as_bytes()).unwrap()).unwrap();
+   assert_eq!(handoff.difficulty, 1);
+   let pow = PowChallenge {
+      kind:        Kind::Sha256,
+      difficulty:  1,
+      blocks_log2: 0,
+      embed:       crate::template::Presentation::Hidden,
    };
    let nonce = (0_u64..1_000_000)
-      .find(|&candidate| pow.verify_nonce(&key, candidate))
+      .find(|&candidate| pow.verify(&handoff.key, candidate, 1))
       .unwrap();
+   let solution = Solution {
+      key: handoff.key,
+      nonce,
+      difficulty: 1,
+   };
 
    let mut req = Request::builder()
       .method(Method::POST)
       .uri("/__bagel/pow/verify")
       .header("host", "example.test")
       .header("content-type", "text/plain")
-      .body(Body::from(BASE64URL_NOPAD.encode(&pack_solution(
-         [7, 7, 7, 7],
-         &key,
-         nonce,
-      ))))
+      .body(Body::from(
+         BASE64URL_NOPAD.encode(&pack_solution([7, 7, 7, 7], &solution)),
+      ))
       .unwrap();
    let addr = SocketAddr::from(([127, 0, 0, 1], 40_000));
    req.extensions_mut().insert(addr);

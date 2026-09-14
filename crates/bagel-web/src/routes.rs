@@ -237,6 +237,7 @@ fn handle_verify(shared: &SharedState, challenge_name: &str, req: &Request) -> R
       challenge_name,
       &challenge_key,
       Vec::new(),
+      0,
       reg.duration,
    ) {
       Ok(cookie) => cookie,
@@ -268,6 +269,7 @@ fn seal_pass(
    challenge_name: &str,
    challenge_key: &ChallengeKey,
    result: Vec<u8>,
+   level: u32,
    duration: std::time::Duration,
 ) -> Result<String, Response> {
    let Client {
@@ -302,6 +304,7 @@ fn seal_pass(
       .insert(challenge_name.to_owned(), TokenChallenge {
          key: challenge_key.to_vec(),
          result,
+         level,
          ok: true,
          exp: expiry,
          nbf: now,
@@ -342,7 +345,7 @@ async fn handle_pow_verify(shared: &SharedState, challenge_name: &str, req: Requ
       return body::text(StatusCode::BAD_REQUEST, "body too large");
    };
 
-   let Some((presented_key, nonce)) = BASE64URL_NOPAD
+   let Some(solution) = BASE64URL_NOPAD
       .decode(collected.to_bytes().trim_ascii())
       .ok()
       .and_then(|blob| unpack_solution(&blob))
@@ -355,15 +358,19 @@ async fn handle_pow_verify(shared: &SharedState, challenge_name: &str, req: Requ
       client_ip,
       reg.duration.as_secs() as i64,
       &state.keys.key_fingerprint,
-      &hex_encode(&presented_key),
+      &hex_encode(&solution.key),
    ) else {
       return body::text(StatusCode::FORBIDDEN, "invalid challenge key");
    };
 
-   let ChallengeRuntime::PowSha256(ref pow) = reg.runtime else {
+   let ChallengeRuntime::Pow(ref pow) = reg.runtime else {
       return body::text(StatusCode::BAD_REQUEST, "not a PoW challenge");
    };
-   if !pow.verify_nonce(&challenge_key, nonce) {
+   let level = u32::from(solution.difficulty);
+   if !pow.difficulty_range().contains(&level) {
+      return body::text(StatusCode::BAD_REQUEST, "invalid difficulty");
+   }
+   if !pow.verify(&challenge_key, solution.nonce, level) {
       return body::text(StatusCode::FORBIDDEN, "invalid proof of work");
    }
 
@@ -376,7 +383,8 @@ async fn handle_pow_verify(shared: &SharedState, challenge_name: &str, req: Requ
       },
       challenge_name,
       &challenge_key,
-      nonce.to_be_bytes().to_vec(),
+      solution.nonce.to_be_bytes().to_vec(),
+      level,
       reg.duration,
    ) {
       Ok(cookie) => cookie,

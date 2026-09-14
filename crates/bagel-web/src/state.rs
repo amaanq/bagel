@@ -275,6 +275,20 @@ fn validate_challenge_references(
                "{site} uses blocking challenge '{name}' with check"
             )));
          }
+         if let Some(difficulty) = challenge_action.difficulty {
+            let crate::challenge::ChallengeRuntime::Pow(ref pow) = registration.runtime else {
+               return Err(error::Error::Config(format!(
+                  "{site} sets a difficulty for '{name}', which is not a proof of work"
+               )));
+            };
+            if !pow.difficulty_range().contains(&difficulty) {
+               return Err(error::Error::Config(format!(
+                  "{site} sets difficulty {difficulty} for '{name}', outside {}..={}",
+                  pow.difficulty_range().start(),
+                  pow.difficulty_range().end()
+               )));
+            }
+         }
       }
       Ok(())
    }

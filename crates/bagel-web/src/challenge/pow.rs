@@ -1,4 +1,17 @@
-use bagel_solver::codec::pack_handoff;
+use std::ops::RangeInclusive;
+
+use bagel_solver::{
+   codec::{
+      Handoff,
+      Kind,
+      pack_handoff,
+   },
+   scratch,
+   sha256::{
+      KeyBlock,
+      leading_zero_bits,
+   },
+};
 use data_encoding::BASE64URL_NOPAD;
 use http::{
    StatusCode,
@@ -34,17 +47,34 @@ use crate::{
 
 const RUNTIME: &str = "/__bagel/static/runtime.mjs";
 
-/// SHA-256 proof-of-work challenge.
-/// The client must find a nonce such that SHA-256(key || nonce) has
-/// `difficulty` leading zero nibbles.
+/// A proof-of-work challenge solved by the wasm module. `pow-sha256` counts
+/// zero nibbles of one digest, `pow-scratch` counts zero bits after a
+/// scratchpad walk.
 #[derive(Clone)]
-pub struct PowSha256Challenge {
-   pub difficulty: u32,
+pub struct PowChallenge {
+   pub kind:        Kind,
+   pub difficulty:  u32,
+   pub blocks_log2: u8,
    /// How the solver appears when spliced into a proxied page.
-   pub embed:      Presentation,
+   pub embed:       Presentation,
 }
 
-impl PowSha256Challenge {
+impl PowChallenge {
+   /// Difficulties this proof can express.
+   #[must_use]
+   pub const fn difficulty_range(&self) -> RangeInclusive<u32> {
+      match self.kind {
+         Kind::Sha256 => 1..=64,
+         Kind::Scratch => 1..=32,
+      }
+   }
+
+   /// The difficulty a request must prove, after any rule override.
+   #[must_use]
+   pub fn level(&self, ctx: &ChallengeContext<'_>) -> u32 {
+      ctx.difficulty.unwrap_or(self.difficulty)
+   }
+
    /// `background` settles in place. Embeds qualify, while interstitials
    /// reload.
    fn widget(
@@ -55,9 +85,14 @@ impl PowSha256Challenge {
    ) -> Widget {
       let mut iv = [0_u8; 4];
       let _ = SystemRandom::new().fill(&mut iv);
-      let difficulty = u8::try_from(self.difficulty).expect("difficulty is validated to 1..=64");
+      let handoff = Handoff {
+         key:         *ctx.challenge_key,
+         kind:        self.kind,
+         difficulty:  u8::try_from(self.level(ctx)).expect("difficulty is validated to fit"),
+         blocks_log2: self.blocks_log2,
+      };
       let loader = LoaderData {
-         payload: BASE64URL_NOPAD.encode(&pack_handoff(iv, ctx.challenge_key, difficulty)),
+         payload: BASE64URL_NOPAD.encode(&pack_handoff(iv, &handoff)),
          verify_url: format!("/__bagel/{}/verify", ctx.challenge_name),
          background,
       };
@@ -76,7 +111,7 @@ impl PowSha256Challenge {
    }
 
    /// Renders the challenge page with the solver embedded, so the work runs
-   /// in the client's JS engine rather than costing us anything.
+   /// on the client rather than costing us anything.
    pub fn issue(
       &self,
       ctx: &ChallengeContext<'_>,
@@ -108,36 +143,26 @@ impl PowSha256Challenge {
       self.widget(ctx, self.embed, true)
    }
 
-   /// Verify a `PoW` solution from a nonce integer (big-endian, matching JS
-   /// client).
+   /// Check a nonce against the proof at the difficulty the client claims,
+   /// which the caller has already bounded to `difficulty_range`.
    #[must_use]
-   pub fn verify_nonce(&self, challenge_key: &ChallengeKey, nonce: u64) -> bool {
-      let nonce_bytes = nonce.to_be_bytes();
-      let mut buf = Vec::with_capacity(32 + 8);
-      buf.extend_from_slice(challenge_key);
-      buf.extend_from_slice(&nonce_bytes);
-      let hash = ring::digest::digest(&ring::digest::SHA256, &buf);
-      check_leading_zeros(hash.as_ref(), self.difficulty)
-   }
-}
-
-/// Check that a hash has at least `required` leading zero nibbles (half-bytes).
-fn check_leading_zeros(hash: &[u8], required: u32) -> bool {
-   let mut zeros = 0_u32;
-   for &byte in hash {
-      if byte == 0 {
-         zeros += 2;
-      } else if byte < 0x10 {
-         zeros += 1;
-         break;
-      } else {
-         break;
-      }
-      if zeros >= required {
-         return true;
+   pub fn verify(&self, challenge_key: &ChallengeKey, nonce: u64, difficulty: u32) -> bool {
+      let mut key = KeyBlock::new(challenge_key);
+      match self.kind {
+         Kind::Sha256 => {
+            let mut buf = Vec::with_capacity(32 + 8);
+            buf.extend_from_slice(challenge_key);
+            buf.extend_from_slice(&nonce.to_be_bytes());
+            let hash = ring::digest::digest(&ring::digest::SHA256, &buf);
+            let digest: [u8; 32] = hash.as_ref().try_into().expect("sha256 output is 32 bytes");
+            leading_zero_bits(&digest, difficulty * 4)
+         },
+         Kind::Scratch => {
+            let mut pad = vec![[0_u8; 32]; 1 << self.blocks_log2];
+            scratch::satisfies(&mut pad, &mut key, nonce, self.blocks_log2, difficulty)
+         },
       }
    }
-   zeros >= required
 }
 
 #[cfg(test)]
@@ -146,15 +171,17 @@ mod tests {
 
    #[test]
    fn pow_verify_big_endian() {
-      let pow = PowSha256Challenge {
-         difficulty: 1,
-         embed:      Presentation::Hidden,
+      let pow = PowChallenge {
+         kind:        Kind::Sha256,
+         difficulty:  1,
+         blocks_log2: 0,
+         embed:       Presentation::Hidden,
       };
       let key = [0u8; 32];
 
       // Brute-force a valid nonce for difficulty=1 using big-endian (matching
       // JS)
-      let found = (0u64..100_000).any(|nonce| pow.verify_nonce(&key, nonce));
+      let found = (0u64..100_000).any(|nonce| pow.verify(&key, nonce, 1));
       assert!(found, "could not find valid nonce");
    }
 }

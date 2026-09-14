@@ -1,5 +1,5 @@
 const MODULE = "/__bagel/static/solver.wasm";
-const BATCH = 1 << 16;
+const SLICE_MS = 40;
 
 const decode = (text) =>
   Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), (ch) =>
@@ -36,9 +36,13 @@ async function run(host) {
   const started = performance.now();
   let nonce = 0n;
   let found = -1n;
+  let batch = 16;
   while (found < 0n) {
-    found = solve(nonce, BATCH, difficulty);
-    nonce += BigInt(BATCH);
+    const before = performance.now();
+    found = solve(nonce, batch);
+    nonce += BigInt(batch);
+    const took = Math.max(performance.now() - before, 1);
+    batch = Math.max(1, Math.min(1 << 20, Math.round((batch * SLICE_MS) / took)));
     if (status) {
       const elapsed = ((performance.now() - started) / 1000).toFixed(1);
       status.textContent = `Checking... (${elapsed}s)`;

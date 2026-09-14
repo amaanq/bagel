@@ -96,6 +96,17 @@ whose Content-Security-Policy lacks `wasm-unsafe-eval` can't run the embedded
 `check` widget, and those clients meet the blocking wall on the next gated
 request instead.
 
+Two proofs are available. `runtime="pow-sha256"` counts leading zero nibbles
+of one digest and `difficulty` defaults to 4. `runtime="pow-scratch"` seeds a
+scratchpad of `memory` KiB, a power of two from 64 to 1024 defaulting to 256,
+walks it in a data-dependent order and counts leading zero bits of the result,
+with `difficulty` defaulting to 12. Every attempt touches the whole pad, so a
+batch solver gains little over a browser. A `challenge` or `check` rule, or a
+scorecard threshold, may add `difficulty=N` to demand more than the challenge's
+own setting, which is how a suspicious score buys a harder proof without a
+second challenge. A pass is sealed with the difficulty it was verified at, and
+a gate accepts any pass at or above the level it asks for.
+
 ACME needs a build with the `bagel-daemon` crate's `acme` feature and a TCP
 listener, and an ACME configuration the build can't honor fails validation
 rather than falling back to plaintext. Crawler verification by
