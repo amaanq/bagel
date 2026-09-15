@@ -109,7 +109,9 @@ Every build checks the original and rewritten modules against the native solver
 through handoff decoding, SHA and scratchpad searches, repeated calls, malformed
 lengths and sealed output bytes. Each module gets 20 billion fuel units across
 the scenario, 4 MiB of linear memory, 4096 table elements and 4096 captured
-memory bytes. A mismatch, trap or exhausted budget fails the build, including
+memory bytes. Verification runs in a fresh process with a 30-second deadline
+and a 1 GiB address-space cap covering parsing, compilation and execution.
+A mismatch, trap, failed worker or exhausted budget fails the build, including
 when `BAGEL_SOLVER_WASM` supplies the input. The regression check also validates
 the served artifact and repeats the workload across four rewrite seeds with
 the selected profile and an aggressive profile covering every function.

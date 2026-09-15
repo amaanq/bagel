@@ -15,6 +15,7 @@ use vela::{
       FunctionSelector,
    },
    verify,
+   worker::Verifier,
 };
 
 #[must_use]
@@ -36,9 +37,13 @@ pub fn config(seed: u64) -> Config {
    }
 }
 
-pub fn rewrite(input: &[u8], config: &Config) -> Result<Vec<u8>, Box<dyn Error>> {
+pub fn rewrite(
+   verifier: &Verifier,
+   input: &[u8],
+   config: &Config,
+) -> Result<Vec<u8>, Box<dyn Error>> {
    let (output, _report) = vela::transform(input, config)?;
-   validate(input, &output)?;
+   validate(verifier, input, &output)?;
    Ok(output)
 }
 
@@ -49,7 +54,7 @@ fn call(name: &str, arguments: Vec<verify::Value>) -> verify::Action {
    }
 }
 
-pub fn validate(first: &[u8], second: &[u8]) -> Result<(), Box<dyn Error>> {
+pub fn validate(verifier: &Verifier, first: &[u8], second: &[u8]) -> Result<(), Box<dyn Error>> {
    let host = verify::HostConfig {
       limits: verify::Limits {
          fuel:           20_000_000_000,
@@ -60,7 +65,7 @@ pub fn validate(first: &[u8], second: &[u8]) -> Result<(), Box<dyn Error>> {
       ..verify::HostConfig::default()
    };
    let probe = vec![call("buf", Vec::new())];
-   let found = verify::compare_scenario(first, first, &probe, host)?;
+   let found = verifier.compare_scenario(first, first, &probe, host)?;
    let base = found
       .iter()
       .find_map(|entry| {
@@ -166,7 +171,7 @@ pub fn validate(first: &[u8], second: &[u8]) -> Result<(), Box<dyn Error>> {
          .to_vec(),
       );
    }
-   let observations = verify::compare_scenario(first, second, &actions, host)?;
+   let observations = verifier.compare_scenario(first, second, &actions, host)?;
    let mut calls = expected.iter();
    let mut bodies = sealed.iter();
    let mut memory_seen = false;
@@ -235,6 +240,11 @@ mod tests {
       io,
    };
 
+   use vela::worker::{
+      Limits,
+      Verifier,
+   };
+
    use crate::solver::{
       config,
       rewrite,
@@ -243,14 +253,15 @@ mod tests {
 
    #[test]
    fn solver_rewrites_match_native() -> Result<(), Box<dyn Error>> {
+      let verifier = Verifier::new(env!("BAGEL_VERIFY_WORKER").as_ref(), Limits::default())?;
       let input = include_bytes!(concat!(env!("OUT_DIR"), "/solver.input.wasm"));
       let shipped = include_bytes!(concat!(env!("OUT_DIR"), "/solver.wasm"));
       if input.is_empty() || shipped.is_empty() {
          return Err(io::Error::other("solver fixtures are missing or empty").into());
       }
-      validate(input, shipped)?;
+      validate(&verifier, input, shipped)?;
       for seed in [0, 1, 42, u64::MAX] {
-         rewrite(input, &config(seed))?;
+         rewrite(&verifier, input, &config(seed))?;
          let mut aggressive = config(seed);
          aggressive.functions.clear();
          aggressive.include_callees = false;
@@ -259,7 +270,7 @@ mod tests {
          aggressive.opaque = true;
          aggressive.indirect_ratio = 100u32.try_into().map_err(io::Error::other)?;
          aggressive.opaque_ratio = 100u32.try_into().map_err(io::Error::other)?;
-         rewrite(input, &aggressive)?;
+         rewrite(&verifier, input, &aggressive)?;
       }
       Ok(())
    }
