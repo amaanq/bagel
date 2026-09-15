@@ -29,6 +29,8 @@ use rhai::{
 
 use crate::{
    body::Body,
+   fingerprint::Capture,
+   http2::Http2Fingerprint,
    net::{
       IpNetTrie,
       rate::RateSnapshot,
@@ -201,10 +203,19 @@ impl ConditionContext {
          _ => "unknown",
       };
 
-      let fp = req.extensions().get::<TlsFingerprint>().map_or_else(
+      let mut fp = req.extensions().get::<TlsFingerprint>().map_or_else(
          || TlsFingerprint::default().policy_fields(),
          TlsFingerprint::policy_fields,
       );
+      let http2 = req
+         .extensions()
+         .get::<Capture<Http2Fingerprint>>()
+         .cloned()
+         .unwrap_or_default();
+      fp.insert("http2_status".to_owned(), http2.to_string());
+      if let Capture::Complete(connection) = http2 {
+         fp.extend(connection.policy_fields());
+      }
 
       Self {
          host,

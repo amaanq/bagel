@@ -62,6 +62,7 @@ use crate::{
    },
    hex_decode,
    hex_encode,
+   http2::FingerprintStream,
    metrics as bmetrics,
    net::{
       ConnectionPeer,
@@ -401,11 +402,14 @@ async fn serve_one_connection(
 ) {
    let drop_handle = DropHandle::new();
    let conn_handle = drop_handle.clone();
+   let observed = FingerprintStream::new(stream);
+   let http2 = observed.fingerprint();
 
    let service = service_fn(move |req: HyperRequest<Incoming>| {
       let shared = Arc::clone(&shared);
       let fp = fingerprint.clone();
       let handle = drop_handle.clone();
+      let http2_capture = http2.lock().clone();
       async move {
          let (parts, body) = req.into_parts();
          let mut req = Request::from_parts(parts, Body::with_idle_timeout(body));
@@ -413,6 +417,7 @@ async fn serve_one_connection(
          req.extensions_mut().insert(connection_peer);
          req.extensions_mut().insert(handle);
          req.extensions_mut().insert(fp);
+         req.extensions_mut().insert(http2_capture);
          Ok::<_, Infallible>(dispatch(&shared, addr, req).await)
       }
    });
@@ -422,7 +427,7 @@ async fn serve_one_connection(
       .http1()
       .timer(TokioTimer::new())
       .header_read_timeout(REQUEST_HEADER_TIMEOUT);
-   let conn = builder.serve_connection_with_upgrades(TokioIo::new(stream), service);
+   let conn = builder.serve_connection_with_upgrades(TokioIo::new(observed), service);
    tokio::pin!(conn);
 
    tokio::select! {

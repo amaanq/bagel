@@ -95,7 +95,7 @@ The rest are maps.
 | Binding    | Keys                            | Value                                                                      |
 | ---------- | ------------------------------- | -------------------------------------------------------------------------- |
 | `headers`  | Lowercase header name           | Header value, empty when the value is not valid UTF-8                      |
-| `fp`       | Listed below                    | TLS fingerprints, capture status and source                    |
+| `fp`       | Listed below                    | TLS and HTTP/2 fingerprints, capture status and source                    |
 | `networks` | Configured network name         | True when the client IP falls inside that network                          |
 | `rate`     | `available`, `1s`, `10s`, `60s` | Normal request counts for this host and source network                     |
 | `poison`   | `returned`                      | True when a maze on this host holds an active entry for the source network |
@@ -106,7 +106,8 @@ The rest are maps.
 `networks` is only populated when a client IP resolves, so a condition indexing
 a network name finds no entry rather than false when the address is missing.
 
-`fp` always includes `source`, `tls_status` and `proxied_status` as strings. `source` is one of `none`, `native`, `proxy` or
+`fp` always includes `source`, `tls_status`, `proxied_status` and
+`http2_status` as strings. `source` is one of `none`, `native`, `proxy` or
 `native+proxy`. Each status is one of `unavailable`, `incomplete`, `invalid`,
 `limited`, `untrusted` or `complete`, and `proxied_status` can also be
 `partial`. All `fp` values are strings. Native detail keys require a complete
@@ -123,6 +124,17 @@ protocol name in handshake order.
 
 Capture limits keep each policy string within Rhai's 4096-byte limit. Oversized
 metadata reports `limited` and supplies no fingerprint.
+
+`fp["http2"]` holds the raw Akamai form `SETTINGS|WINDOW_UPDATE|PRIORITY|PSEUDO`
+with no MD5 hash. Component keys `http2_settings`, `http2_window_update`,
+`http2_priority` and `http2_pseudo_headers` carry the same pieces and
+`http2_source` is `transport` when the capture completed. Capture runs
+passively after TLS and before Hyper and it spans at most 64 KiB and 128
+frames through the first HEADERS or CONTINUATION completion. The value is
+reused unchanged on later streams and only the initial SETTINGS plus the first
+connection WINDOW_UPDATE plus standalone PRIORITY frames before headers feed
+it. Behind an HTTP/2 terminator, these fields describe its connection to bagel
+when that connection uses HTTP/2. They cannot describe the visitor's frames.
 
 Behind a TLS-terminating proxy, `client-tls-header` names a header that
 trusted proxies fill with
@@ -147,7 +159,7 @@ Behind a CDN such as Cloudflare the header describes its origin-pull client,
 so leave it unset when scoring visitors.
 
 Decision logs include `fp_source`, `fp_tls_status`, `fp_proxied_status`,
-`fp_ja4` and `fp_proxied`. A familiar browser
+`fp_http2`, `fp_http2_status`, `fp_ja4` and `fp_proxied`. A familiar browser
 fingerprint does not prove a visitor is human. Use it as a scoring signal
 alongside request rates, challenge results and header consistency.
 

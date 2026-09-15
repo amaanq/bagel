@@ -25,6 +25,7 @@ ipnetwork.workspace       = true
 http.workspace           = true
 http-body.workspace      = true
 http-body-util.workspace = true
+httlib-huffman.workspace = true
 hyper.workspace          = true
 hyper-util.workspace     = true
 tokio.workspace          = true
@@ -69,6 +70,7 @@ rustls-acme = { optional = true, workspace = true }
 arc-swap.workspace         = true
 bytes.workspace            = true
 pin-project-lite.workspace = true
+parking_lot.workspace      = true
 regex.workspace            = true
 tower-service.workspace    = true
 tracing.workspace          = true

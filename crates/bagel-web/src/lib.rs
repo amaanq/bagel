@@ -8,6 +8,7 @@ pub mod crawler;
 pub mod error;
 pub mod fingerprint;
 pub mod host;
+pub mod http2;
 pub mod maze;
 pub mod metrics;
 pub mod net;

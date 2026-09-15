@@ -71,10 +71,11 @@ pub fn build_server_config(cert_path: &Path, key_path: &Path) -> io::Result<rust
       )
    })?;
 
-   let config = rustls::ServerConfig::builder()
+   let mut config = rustls::ServerConfig::builder()
       .with_no_client_auth()
       .with_single_cert(certs, key)
       .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?;
+   config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
 
    Ok(config)
 }

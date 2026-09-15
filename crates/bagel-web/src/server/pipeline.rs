@@ -335,6 +335,8 @@ pub async fn handle_request(shared: &SharedState, addr: SocketAddr, mut req: Req
       fp_source = ctx.fp.get("source"),
       fp_tls_status = ctx.fp.get("tls_status"),
       fp_proxied_status = ctx.fp.get("proxied_status"),
+      fp_http2 = ctx.fp.get("http2"),
+      fp_http2_status = ctx.fp.get("http2_status"),
       candidate_threshold = candidate.map(|threshold| threshold.value),
       candidate_action = candidate.map(|threshold| threshold.kind),
       candidate_status,

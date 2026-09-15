@@ -49,6 +49,10 @@ impl<'data> Cursor<'data> {
       Ok((usize::from(high) << 16) | (usize::from(middle) << 8) | usize::from(low))
    }
 
+   pub(crate) fn u32(&mut self) -> Result<u32, CaptureError> {
+      self.array().map(u32::from_be_bytes)
+   }
+
    pub(crate) fn vector_u8(&mut self) -> Result<&'data [u8], CaptureError> {
       let length = usize::from(self.byte()?);
       self.take(length)

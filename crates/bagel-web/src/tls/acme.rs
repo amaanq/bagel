@@ -44,7 +44,9 @@ pub fn build_acme_state(
           "ACME TLS enabled (certs cached)"
       );
       let state = config.cache(DirCache::new(cache_path)).state();
-      let default_config = state.default_rustls_config();
+      let mut default_config = state.default_rustls_config();
+      Arc::make_mut(&mut default_config).alpn_protocols =
+         vec![b"h2".to_vec(), b"http/1.1".to_vec()];
       let challenge_config = state.challenge_rustls_config();
       tokio::spawn(drive_acme_state(state));
       AcmeHandles {
@@ -54,7 +56,9 @@ pub fn build_acme_state(
    } else {
       tracing::info!(domains = ?domains, "ACME TLS enabled (no cache)");
       let state = config.state();
-      let default_config = state.default_rustls_config();
+      let mut default_config = state.default_rustls_config();
+      Arc::make_mut(&mut default_config).alpn_protocols =
+         vec![b"h2".to_vec(), b"http/1.1".to_vec()];
       let challenge_config = state.challenge_rustls_config();
       tokio::spawn(drive_acme_state(state));
       AcmeHandles {
