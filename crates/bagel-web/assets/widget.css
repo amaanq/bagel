@@ -223,7 +223,7 @@ bagel-challenge[hidden] {
 
 /* One-shot staged entrance: infrequent page load only, staggered ~100ms so
    hierarchy reads top-down. Compositor properties only. */
-.bagel-widget .card > * {
+.bagel-widget .card > :not(.spinner) {
   animation: bagel-enter var(--bagel-dur-enter) var(--bagel-ease) both;
 }
 
@@ -308,7 +308,7 @@ bagel-challenge[hidden] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bagel-widget .card > * {
+  .bagel-widget .card > :not(.spinner) {
     animation: none;
   }
 
