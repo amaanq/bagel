@@ -1,15 +1,5 @@
-const MODULE = "/__bagel/static/solver.wasm";
-const SLICE_MS = 40;
-
-const decode = (text) =>
-  Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), (ch) =>
-    ch.charCodeAt(0),
-  );
-const encode = (bytes) =>
-  btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
+const WORKER = "/__bagel/static/worker.mjs";
+const completed = new WeakSet();
 
 function shadowRootFor(host) {
   if (host.shadowRoot) return host.shadowRoot;
@@ -24,46 +14,70 @@ function shadowRootFor(host) {
 async function run(host) {
   const root = shadowRootFor(host) || host;
   const status = root.querySelector?.(".bagel-status");
-  const handoff = decode(host.dataset.p);
-  const { instance } = await WebAssembly.instantiateStreaming(fetch(MODULE));
-  const { memory, buf, unpack, solve, seal } = instance.exports;
-  const base = buf();
-  const view = () => new Uint8Array(memory.buffer);
-  view().set(handoff, base);
-  const difficulty = unpack(handoff.length);
-  if (difficulty < 0) return;
+  const controller = new AbortController();
+  let worker;
+  const cancel = () => {
+    worker?.terminate();
+    controller.abort();
+  };
+  window.addEventListener("pagehide", cancel, { once: true });
 
-  const started = performance.now();
-  let nonce = 0n;
-  let found = -1n;
-  let batch = 16;
-  while (found < 0n) {
-    const before = performance.now();
-    found = solve(nonce, batch);
-    nonce += BigInt(batch);
-    const took = Math.max(performance.now() - before, 1);
-    batch = Math.max(1, Math.min(1 << 20, Math.round((batch * SLICE_MS) / took)));
-    if (status) {
-      const elapsed = ((performance.now() - started) / 1000).toFixed(1);
-      status.textContent = `Checking... (${elapsed}s)`;
+  try {
+    worker = new Worker(WORKER, { type: "module" });
+    const proof = await new Promise((resolve, reject) => {
+      controller.signal.addEventListener("abort", () => reject(controller.signal.reason), {
+        once: true,
+      });
+      worker.onmessage = ({ data }) => {
+        switch (data.type) {
+          case "progress":
+            if (status) status.textContent = `Checking... (${(data.elapsed / 1000).toFixed(1)}s)`;
+            break;
+          case "proof":
+            resolve(data.proof);
+            break;
+          default:
+            reject(new Error("Challenge worker failed"));
+        }
+      };
+      worker.onerror = (event) => {
+        event.preventDefault();
+        reject(new Error("Challenge worker failed"));
+      };
+      worker.onmessageerror = () => reject(new Error("Invalid challenge worker message"));
+      worker.postMessage(host.dataset.p);
+    });
+
+    const resp = await fetch(host.dataset.v, {
+      method: "POST",
+      headers: { "content-type": "text/plain" },
+      body: proof,
+      signal: controller.signal,
+    });
+    if (!resp.ok) throw new Error("Challenge verification failed");
+    completed.add(host);
+    if (status) status.textContent = "Check complete";
+    if (host.dataset.mode !== "background") window.location.reload();
+  } catch (error) {
+    if (!controller.signal.aborted) {
+      if (status) status.textContent = "Couldn't complete the check. Reload to try again.";
+      console.error("Bagel challenge failed", error);
     }
-    await new Promise((resolve) => setTimeout(resolve, 0));
+  } finally {
+    worker?.terminate();
+    window.removeEventListener("pagehide", cancel);
   }
-
-  const iv = crypto.getRandomValues(new Uint32Array(1))[0];
-  const length = seal(found, iv);
-  const resp = await fetch(host.dataset.v, {
-    method: "POST",
-    headers: { "content-type": "text/plain" },
-    body: encode(view().subarray(base, base + length)),
-  });
-  if (resp.ok && host.dataset.mode !== "background") window.location.reload();
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  const mount = document.getElementById("bagel-challenge");
+function mount() {
+  const container = document.getElementById("bagel-challenge");
   for (const host of document.querySelectorAll("bagel-challenge")) {
-    if (mount && mount !== host && !mount.contains(host)) mount.appendChild(host);
-    if (host.dataset.p && host.dataset.v) run(host).catch(() => { });
+    if (container && container !== host && !container.contains(host)) container.appendChild(host);
+    if (host.dataset.p && host.dataset.v && !completed.has(host)) run(host);
   }
+}
+
+document.addEventListener("DOMContentLoaded", mount);
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) mount();
 });

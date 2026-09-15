@@ -63,12 +63,14 @@ use crate::{
 
 const WIDGET_CSS: &str = include_str!("../assets/widget.css");
 const RUNTIME_MJS: &str = include_str!("../assets/challenge/runtime.mjs");
+const WORKER_MJS: &str = include_str!("../assets/challenge/worker.mjs");
 const SOLVER_WASM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/solver.wasm"));
 
 /// The endpoints bagel answers itself, under a prefix no origin owns.
 enum Internal {
    Css,
    Runtime,
+   Worker,
    Solver,
    Verify(String),
 }
@@ -79,6 +81,7 @@ fn internal_route(path: &str) -> Option<Internal> {
    match path {
       "/__bagel/static/widget.css" => return Some(Internal::Css),
       "/__bagel/static/runtime.mjs" => return Some(Internal::Runtime),
+      "/__bagel/static/worker.mjs" => return Some(Internal::Worker),
       "/__bagel/static/solver.wasm" => return Some(Internal::Solver),
       _ => {},
    }
@@ -103,8 +106,16 @@ pub async fn dispatch(shared: &SharedState, addr: SocketAddr, req: Request) -> R
             "application/javascript; charset=utf-8",
          )
       },
+      Internal::Worker if readable => {
+         asset(
+            WORKER_MJS.as_bytes(),
+            "application/javascript; charset=utf-8",
+         )
+      },
       Internal::Solver if readable => asset(SOLVER_WASM, "application/wasm"),
-      Internal::Css | Internal::Runtime | Internal::Solver => method_not_allowed("GET,HEAD"),
+      Internal::Css | Internal::Runtime | Internal::Worker | Internal::Solver => {
+         method_not_allowed("GET,HEAD")
+      },
       Internal::Verify(name) if readable => handle_verify(shared, &name, &req),
       Internal::Verify(name) if posted => handle_pow_verify(shared, &name, req).await,
       Internal::Verify(_) => method_not_allowed("GET,HEAD,POST"),

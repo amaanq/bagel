@@ -86,15 +86,20 @@ served on its own at `/__bagel/static/widget.css`.
 
 The proof itself runs in a wasm module built from the `bagel-solver` crate,
 served at `/__bagel/static/solver.wasm` and driven by a short shim at
-`/__bagel/static/runtime.mjs`. The page carries only an opaque handoff blob
-and the verify URL, and the module unpacks the key and difficulty, searches
-nonces, and seals the solution it posts back, so nothing readable on the wire
+`/__bagel/static/runtime.mjs`. The shim starts a dedicated Web Worker at
+`/__bagel/static/worker.mjs`, keeping wasm compilation and nonce searches off
+the main thread while the page handles progress and proof submission. Workers
+stop when the proof is ready, the check fails, or the page is left. The page
+carries only an opaque handoff blob and the verify URL, and the module
+unpacks the key and difficulty, searches nonces, and seals the solution it
+posts back, so nothing readable on the wire
 describes the scheme. Building bagel builds the module too, which needs `lld`
 for the `wasm32v1-none` target and shrinks it with `wasm-opt` when binaryen is
 available. `BAGEL_SOLVER_WASM` substitutes a prebuilt module instead. An origin
-whose Content-Security-Policy lacks `wasm-unsafe-eval` can't run the embedded
-`check` widget, and those clients meet the blocking wall on the next gated
-request instead.
+whose Content-Security-Policy blocks the runtime script or the same-origin
+worker can't run the embedded `check` widget, and those clients meet the
+blocking wall on the next gated request instead. Wasm compilation runs under
+the worker response's policy rather than the origin document's policy.
 
 Bagel runs the pinned Vela checkout after shrinking with a deterministic seed of
 zero. Code rewriting starts at `unpack` and `seal` and follows direct calls,

@@ -1,0 +1,48 @@
+const MODULE = "/__bagel/static/solver.wasm";
+const SLICE_MS = 40;
+
+const decode = (text) =>
+  Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), (ch) =>
+    ch.charCodeAt(0),
+  );
+const encode = (bytes) =>
+  btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+self.onmessage = async ({ data }) => {
+  self.onmessage = null;
+
+  try {
+    const handoff = decode(data);
+    const { instance } = await WebAssembly.instantiateStreaming(fetch(MODULE));
+    const { memory, buf, unpack, solve, seal } = instance.exports;
+    const base = buf();
+    const view = () => new Uint8Array(memory.buffer);
+    view().set(handoff, base);
+    if (unpack(handoff.length) < 0) throw new Error("Invalid challenge handoff");
+
+    const started = performance.now();
+    let nonce = 0n;
+    let found = -1n;
+    let batch = 16;
+    while (found < 0n) {
+      const before = performance.now();
+      found = solve(nonce, batch);
+      nonce += BigInt(batch);
+      const took = Math.max(performance.now() - before, 1);
+      batch = Math.max(1, Math.min(1 << 20, Math.round((batch * SLICE_MS) / took)));
+      self.postMessage({ type: "progress", elapsed: performance.now() - started });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    const iv = crypto.getRandomValues(new Uint32Array(1))[0];
+    const length = seal(found, iv);
+    self.postMessage({ type: "proof", proof: encode(view().subarray(base, base + length)) });
+  } catch {
+    self.postMessage({ type: "error" });
+  } finally {
+    self.close();
+  }
+};
