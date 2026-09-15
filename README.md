@@ -97,14 +97,19 @@ whose Content-Security-Policy lacks `wasm-unsafe-eval` can't run the embedded
 request instead.
 
 Bagel runs the pinned Vela checkout after shrinking with a deterministic seed of
-zero. Code rewriting selects `unpack` and `seal`, including control-flow
-flattening, while leaving the nonce-search functions outside that selection.
-Data encryption still covers the module. The profile lives in
+zero. Code rewriting starts at `unpack` and `seal` and follows direct calls,
+excluding every function reachable from `solve`. The selected functions receive
+control-flow flattening, constant rewriting and full direct-call promotion.
+In the current module, all their helpers are shared with `solve`, so only the
+two entry points are selected. Data encryption still covers the module. The
+profile lives in
 [crates/bagel-web/solver.rs](crates/bagel-web/solver.rs).
 
 Every build checks the original and rewritten modules against the native solver
 through handoff decoding, SHA and scratchpad searches, repeated calls, malformed
-lengths and sealed output bytes. A mismatch or trap fails the build, including
+lengths and sealed output bytes. Each module gets 20 billion fuel units across
+the scenario, 4 MiB of linear memory, 4096 table elements and 4096 captured
+memory bytes. A mismatch, trap or exhausted budget fails the build, including
 when `BAGEL_SOLVER_WASM` supplies the input. The regression check also validates
 the served artifact and repeats the workload across four rewrite seeds with
 the selected profile and an aggressive profile covering every function.

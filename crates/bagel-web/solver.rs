@@ -25,9 +25,12 @@ pub fn config(seed: u64) -> Config {
          FunctionSelector::Name("unpack".to_owned()),
          FunctionSelector::Name("seal".to_owned()),
       ],
+      include_callees: true,
+      exclude_reachable: vec![FunctionSelector::Name("solve".to_owned())],
       flatten: true,
       flatten_ratio: 100u32.try_into().expect("flatten ratio 100 is valid"),
-      markers_all: false,
+      markers_all: true,
+      indirect_ratio: 100u32.try_into().expect("indirect ratio 100 is valid"),
       opaque: false,
       ..Config::default()
    }
@@ -47,8 +50,17 @@ fn call(name: &str, arguments: Vec<verify::Value>) -> verify::Action {
 }
 
 pub fn validate(first: &[u8], second: &[u8]) -> Result<(), Box<dyn Error>> {
+   let host = verify::HostConfig {
+      limits: verify::Limits {
+         fuel:           20_000_000_000,
+         memory_bytes:   4 * 1024 * 1024,
+         table_elements: 4096,
+         read_bytes:     4096,
+      },
+      ..verify::HostConfig::default()
+   };
    let probe = vec![call("buf", Vec::new())];
-   let found = verify::compare_scenario(first, first, &probe, verify::HostConfig::default())?;
+   let found = verify::compare_scenario(first, first, &probe, host)?;
    let base = found
       .iter()
       .find_map(|entry| {
@@ -154,8 +166,7 @@ pub fn validate(first: &[u8], second: &[u8]) -> Result<(), Box<dyn Error>> {
          .to_vec(),
       );
    }
-   let observations =
-      verify::compare_scenario(first, second, &actions, verify::HostConfig::default())?;
+   let observations = verify::compare_scenario(first, second, &actions, host)?;
    let mut calls = expected.iter();
    let mut bodies = sealed.iter();
    let mut memory_seen = false;
@@ -242,6 +253,8 @@ mod tests {
          rewrite(input, &config(seed))?;
          let mut aggressive = config(seed);
          aggressive.functions.clear();
+         aggressive.include_callees = false;
+         aggressive.exclude_reachable.clear();
          aggressive.markers_all = true;
          aggressive.opaque = true;
          aggressive.indirect_ratio = 100u32.try_into().map_err(io::Error::other)?;
