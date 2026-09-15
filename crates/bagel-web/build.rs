@@ -98,11 +98,13 @@ fn main() {
    let target_dir = out_dir.join("solver-target");
    let status = Command::new(env::var("CARGO").expect("CARGO is set by cargo"))
       .args([
-         "build",
+         "rustc",
          "--offline",
          "--ignore-rust-version",
          "--profile",
          "solver",
+         "--crate-type",
+         "cdylib",
          "--target",
          "wasm32v1-none",
       ])
