@@ -28,6 +28,7 @@ struct State {
 /// wasm32 has one thread, so the static is never observed concurrently.
 struct Shared(UnsafeCell<State>);
 
+// SAFETY: This module has no shared memory or host imports.
 unsafe impl Sync for Shared {}
 
 static STATE: Shared = Shared(UnsafeCell::new(State {
@@ -41,11 +42,8 @@ static STATE: Shared = Shared(UnsafeCell::new(State {
    pad:     [[0; 32]; PAD_BLOCKS],
 }));
 
-#[expect(
-   clippy::mut_from_ref,
-   reason = "single-threaded wasm module owning one static state"
-)]
 fn state() -> &'static mut State {
+   // SAFETY: Exports hold one borrow and cannot overlap.
    unsafe { &mut *STATE.0.get() }
 }
 

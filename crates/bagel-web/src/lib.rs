@@ -14,7 +14,11 @@ pub mod proxy;
 pub mod routes;
 pub mod rule;
 pub mod server;
+#[cfg(test)]
+#[path = "../solver.rs"]
+mod solver;
 pub mod state;
+
 mod state_validation;
 pub mod tag_fetcher;
 pub mod template;

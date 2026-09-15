@@ -73,5 +73,12 @@ regex.workspace            = true
 tower-service.workspace    = true
 tracing.workspace          = true
 
+[build-dependencies]
+bagel-solver.workspace = true
+vela.workspace         = true
+
+[dev-dependencies]
+vela.workspace = true
+
 [lints]
 workspace = true

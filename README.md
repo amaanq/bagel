@@ -96,10 +96,27 @@ whose Content-Security-Policy lacks `wasm-unsafe-eval` can't run the embedded
 `check` widget, and those clients meet the blocking wall on the next gated
 request instead.
 
+Bagel runs the pinned Vela checkout after shrinking with a deterministic seed of
+zero. Code rewriting selects `unpack` and `seal`, including control-flow
+flattening, while leaving the nonce-search functions outside that selection.
+Data encryption still covers the module. The profile lives in
+[crates/bagel-web/solver.rs](crates/bagel-web/solver.rs).
+
+Every build checks the original and rewritten modules against the native solver
+through handoff decoding, SHA and scratchpad searches, repeated calls, malformed
+lengths and sealed output bytes. A mismatch or trap fails the build, including
+when `BAGEL_SOLVER_WASM` supplies the input. The regression check also validates
+the served artifact and repeats the workload across four rewrite seeds with
+the selected profile and an aggressive profile covering every function.
+
+```sh
+nix develop --command cargo test -p bagel-web solver::
+```
+
 Two proofs are available. `runtime="pow-sha256"` hashes once per attempt and
-`difficulty` defaults to 16. `runtime="pow-scratch"` seeds a scratchpad of
+`difficulty` defaults to 14. `runtime="pow-scratch"` seeds a scratchpad of
 `memory` KiB, a power of two from 64 to 1024 defaulting to 256, walks it in a
-data-dependent order and defaults `difficulty` to 12. Every attempt touches the
+data-dependent order and defaults `difficulty` to 10. Every attempt touches the
 whole pad, so a batch solver gains little over a browser.
 
 `difficulty` counts leading zero bits of the result for both proofs, so each

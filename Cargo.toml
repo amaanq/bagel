@@ -6,7 +6,7 @@ resolver = "3"
 authors      = [ "Amaan Qureshi <contact@amaanq.com>", "NotAShelf <raf@notashelf.dev>" ]
 description  = "HTTP proxy and SSH tarpit daemon that delays malicious scanners"
 edition      = "2024"
-rust-version = "1.97.1"
+rust-version = "1.98.1"
 version      = "1.0.0"
 
 [workspace.dependencies]
@@ -39,7 +39,7 @@ metrics                     = "0.24.6"
 metrics-exporter-prometheus = { default-features = false, version = "0.18.3" }
 parking_lot                 = "0.12.5"
 pin-project-lite            = "0.2.17"
-pound                       = "0.1.6"
+pound                       = "0.1.7"
 ppp                         = "2.3.0"
 rand                        = "0.10.2"
 regex                       = { default-features = false, features = [ "perf", "std", "unicode-case", "unicode-perl" ], version = "1.13.1" }
@@ -69,6 +69,7 @@ bagel-runtime   = { path = "crates/bagel-runtime" }
 bagel-solver    = { path = "crates/bagel-solver" }
 bagel-traps     = { path = "crates/bagel-traps" }
 bagel-web       = { path = "crates/bagel-web" }
+vela            = { package = "vela-wasm", version = "0.1.0" }
 
 [profile.release]
 codegen-units = 1
@@ -79,6 +80,12 @@ strip         = true
 inherits  = "release"
 lto       = "fat"
 opt-level = "z"
+
+[profile.dev.package.wasmi]
+opt-level = 3
+
+[profile.dev.package.wasmi_core]
+opt-level = 3
 
 [workspace.lints.clippy]
 cargo    = { level = "warn", priority = -1 }

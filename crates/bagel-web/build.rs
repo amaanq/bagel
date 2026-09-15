@@ -8,6 +8,8 @@ use std::{
    process::Command,
 };
 
+mod solver;
+
 /// Rewrite a module without its custom sections. `wasm-opt` keeps
 /// `target_features`, and nixpkgs builds with cargo-auditable, which injects a
 /// `.dep-v0` section naming the crate and its version. Neither belongs in a
@@ -46,16 +48,27 @@ fn strip_custom_sections(path: &Path) {
    fs::write(path, out).expect("write the stripped solver module");
 }
 
+fn obfuscate(path: &Path) {
+   let module = fs::read(path).expect("failed to read the solver module");
+   fs::write(path.with_file_name("solver.input.wasm"), &module)
+      .expect("failed to preserve the solver input");
+   let rewritten = solver::rewrite(&module, &solver::config(0))
+      .expect("failed to rewrite and validate the solver module");
+   fs::write(path, rewritten).expect("failed to write the obfuscated solver module");
+}
+
 /// The browser solver is a wasm build of `bagel-solver`, embedded into the
 /// binary. `BAGEL_SOLVER_WASM` points at a prebuilt module.
 fn main() {
    let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR is set by cargo"));
    let dest = out_dir.join("solver.wasm");
    println!("cargo:rerun-if-env-changed=BAGEL_SOLVER_WASM");
+   println!("cargo:rerun-if-changed=solver.rs");
 
    if let Ok(prebuilt) = env::var("BAGEL_SOLVER_WASM") {
       println!("cargo:rerun-if-changed={prebuilt}");
       fs::copy(&prebuilt, &dest).expect("copy prebuilt solver module");
+      obfuscate(&dest);
       strip_custom_sections(&dest);
       return;
    }
@@ -72,6 +85,7 @@ fn main() {
       .args([
          "build",
          "--offline",
+         "--ignore-rust-version",
          "--profile",
          "solver",
          "--target",
@@ -114,5 +128,6 @@ fn main() {
       },
    }
 
+   obfuscate(&dest);
    strip_custom_sections(&dest);
 }
