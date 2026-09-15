@@ -74,7 +74,6 @@ rustPlatform.buildRustPackage (finalAttrs: {
     ''
       install -Dm644 -t $out/share/bagel/corpus ${contrib}/corpus/*.txt
       install -Dm644 -t $out/share/bagel/scripts ${contrib}/rhai/*.rhai
-      rm -r $out/lib
     '';
 
   meta = {
