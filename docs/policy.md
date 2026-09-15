@@ -95,7 +95,7 @@ The rest are maps.
 | Binding    | Keys                            | Value                                                                      |
 | ---------- | ------------------------------- | -------------------------------------------------------------------------- |
 | `headers`  | Lowercase header name           | Header value, empty when the value is not valid UTF-8                      |
-| `fp`       | `ja4`, `proxied`                | TLS fingerprint of the handshake, native or relayed by a trusted proxy     |
+| `fp`       | Listed below                    | TLS fingerprints, capture status and source                    |
 | `networks` | Configured network name         | True when the client IP falls inside that network                          |
 | `rate`     | `available`, `1s`, `10s`, `60s` | Normal request counts for this host and source network                     |
 | `poison`   | `returned`                      | True when a maze on this host holds an active entry for the source network |
@@ -103,27 +103,53 @@ The rest are maps.
 | `crawler`  | `verified`                      | True when forward-confirmed reverse DNS matched a configured provider      |
 | `trap`     | Six keys, listed below          | What bagel's signature classifier said about the request                   |
 
-A couple of these are empty rather than false when the underlying data isn't
-there. `fp` only carries a key when the connection produced a fingerprint, so
-it's empty on plaintext connections, and `networks` is only populated when a
-client IP resolves, which means a condition indexing a network name finds no
-entry rather than false.
+`networks` is only populated when a client IP resolves, so a condition indexing
+a network name finds no entry rather than false when the address is missing.
 
-`fp["ja4"]` needs bagel to terminate TLS itself. Behind a TLS-terminating
-proxy, `client-tls-header` names a header that trusted proxies fill with
-`$ssl_protocol;$ssl_ciphers;$ssl_curves;$ssl_alpn_protocol`, and bagel digests
-it into `fp["proxied"]`, a `p{version}{ciphers}{curves}{alpn}_{hash}_{hash}`
-string with GREASE removed so Chrome hashes stably. It's a coarser signal than
-JA4 because nginx exposes no extension list, but it still separates HTTP
-libraries from browsers, and the value is logged on every decision line as
-`fp_proxied` so a browser allowlist can be read off real traffic. Like
-`client-ip-header`, it requires `trusted-proxies`. The original transport
+`fp` always includes `source`, `tls_status` and `proxied_status` as strings. `source` is one of `none`, `native`, `proxy` or
+`native+proxy`. Each status is one of `unavailable`, `incomplete`, `invalid`,
+`limited`, `untrusted` or `complete`, and `proxied_status` can also be
+`partial`. All `fp` values are strings. Native detail keys require a complete
+capture, while a partial proxy report exposes the metadata it supplied.
+
+`fp["ja4"]` needs bagel to terminate TLS itself and it holds the canonical
+FoxIO JA4 for a complete native handshake. Native detail keys `tls_version`,
+`ciphers`, `extensions`, `groups`, `signature_algorithms` and `alpn` appear
+with it. `tls_version` uses the JA4 version code such as `13` for TLS 1.3 and
+`12` for TLS 1.2. `ciphers`, `extensions`, `groups` and
+`signature_algorithms` hold comma-separated four-digit lowercase hex in
+handshake order, with GREASE excluded. `alpn` holds comma-separated hex of each full
+protocol name in handshake order.
+
+Capture limits keep each policy string within Rhai's 4096-byte limit. Oversized
+metadata reports `limited` and supplies no fingerprint.
+
+Behind a TLS-terminating proxy, `client-tls-header` names a header that
+trusted proxies fill with
+`$ssl_protocol;$ssl_ciphers;$ssl_curves;$ssl_alpn_protocol;$ssl_session_reused`
+and bagel requires all five fields.
+Session reuse is `r` for resumed and `.` otherwise. Parsed metadata appears as
+`proxied_version`, `proxied_ciphers`, `proxied_curves`, `proxied_alpn` and
+`proxied_resumed` with `true` or `false` as strings. Cipher and curve order
+follows the client's advertised preference order. The coarse `p` digest in `proxied` appears
+only when curves are nonempty, otherwise `proxied_status` is `partial` with no
+`proxied` digest while the raw metadata stays available. Nginx only supplies
+curves on new sessions. The fingerprint changes with preference order and
+negotiated ALPN, so compare it across equivalent capture contexts. It is a
+coarser signal than JA4 because the header carries no extension list.
+
+Like `client-ip-header`, this needs `trusted-proxies`. The original transport
 peer gates the TLS header even when PROXY rewrites the client source, and
 PROXY source takes precedence over the client IP header for that source. Unix
 connections without a transport address use the localhost trust policy. It only
-works when the proxy terminates the client's own TLS session. Behind a CDN such as
-Cloudflare the header describes the CDN's origin-pull client and every
-request hashes to the same value, so leave it unset there.
+describes the client when the proxy terminates the client TLS session itself.
+Behind a CDN such as Cloudflare the header describes its origin-pull client,
+so leave it unset when scoring visitors.
+
+Decision logs include `fp_source`, `fp_tls_status`, `fp_proxied_status`,
+`fp_ja4` and `fp_proxied`. A familiar browser
+fingerprint does not prove a visitor is human. Use it as a scoring signal
+alongside request rates, challenge results and header consistency.
 
 `lease["active"]` is false unless the daemon has attached its defense plane. It
 matches the whole lease network rather than one address, and leases whose

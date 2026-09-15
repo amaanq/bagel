@@ -72,6 +72,7 @@ pin-project-lite.workspace = true
 regex.workspace            = true
 tower-service.workspace    = true
 tracing.workspace          = true
+thiserror.workspace        = true
 
 [build-dependencies]
 bagel-solver.workspace = true

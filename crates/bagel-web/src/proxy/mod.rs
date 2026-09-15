@@ -54,6 +54,7 @@ use crate::{
       Request,
       Response,
    },
+   fingerprint::Capture,
    hex_encode,
    proxy::backend::Backend,
    tls::TlsFingerprint,
@@ -185,8 +186,8 @@ pub async fn proxy_request(
 
    req.headers_mut().remove("x-bagel-ja4");
    if let Some(fp) = req.extensions().get::<TlsFingerprint>()
-      && !fp.ja4.is_empty()
-      && let Ok(val) = HeaderValue::from_str(&fp.ja4)
+      && let Capture::Complete(hello) = fp.native()
+      && let Ok(val) = HeaderValue::from_str(hello.ja4())
    {
       req.headers_mut().insert("x-bagel-ja4", val);
    }

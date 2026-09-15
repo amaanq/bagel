@@ -6,6 +6,7 @@ pub mod challenge;
 #[cfg(feature = "fcrdns")]
 pub mod crawler;
 pub mod error;
+pub mod fingerprint;
 pub mod host;
 pub mod maze;
 pub mod metrics;
@@ -23,6 +24,7 @@ mod state_validation;
 pub mod tag_fetcher;
 pub mod template;
 pub mod tls;
+mod wire;
 
 use std::net::{
    IpAddr,

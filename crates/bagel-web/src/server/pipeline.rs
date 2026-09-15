@@ -44,6 +44,10 @@ use crate::{
       RequestChallengeState,
       url::strip_bagel_params,
    },
+   fingerprint::{
+      Capture,
+      CaptureError,
+   },
    host::CanonicalHost,
    metrics as bmetrics,
    net::{
@@ -73,7 +77,7 @@ use crate::{
    template,
    tls::{
       TlsFingerprint,
-      fingerprint::proxied_fingerprint,
+      fingerprint::ProxiedFingerprint,
    },
 };
 
@@ -104,29 +108,32 @@ pub async fn handle_request(shared: &SharedState, addr: SocketAddr, mut req: Req
       req.extensions_mut()
          .insert(SocketAddr::new(ip, addr.port()));
    }
-   let transport_ip = req.extensions().get::<ConnectionPeer>().map_or_else(
-      || addr.ip(),
-      |peer| {
-         peer
-            .transport
-            .map_or(IpAddr::V4(Ipv4Addr::LOCALHOST), |address| address.ip())
-      },
-   );
-   if let Some(name) = state.config.client_tls_header.as_deref()
-      && state.policy.client_ip.trusts(transport_ip)
-      && let Some(proxied) = req
-         .headers()
-         .get(name)
-         .and_then(|value| value.to_str().ok())
-         .and_then(proxied_fingerprint)
-   {
-      let mut fp = req
-         .extensions()
-         .get::<TlsFingerprint>()
-         .cloned()
-         .unwrap_or_default();
-      fp.proxied = proxied;
-      req.extensions_mut().insert(fp);
+   if let Some(name) = state.config.client_tls_header.as_deref() {
+      let transport_ip = req.extensions().get::<ConnectionPeer>().map_or_else(
+         || addr.ip(),
+         |peer| {
+            peer
+               .transport
+               .map_or(IpAddr::V4(Ipv4Addr::LOCALHOST), |address| address.ip())
+         },
+      );
+      let trusted = state.policy.client_ip.trusts(transport_ip);
+      let mut values = req.headers().get_all(name).iter();
+      let proxied = match values.next() {
+         None => Capture::Unavailable,
+         Some(_) if !trusted => Capture::Failed(CaptureError::Untrusted),
+         Some(_) if values.next().is_some() => Capture::Failed(CaptureError::Invalid),
+         Some(value) => {
+            value
+               .to_str()
+               .map_err(|_| CaptureError::Invalid)
+               .and_then(str::parse::<ProxiedFingerprint>)
+               .into()
+         },
+      };
+      req.extensions_mut()
+         .get_or_insert_default::<TlsFingerprint>()
+         .set_proxied(proxied);
    }
 
    let Some(backend) = state.runtime.backends.select(&host) else {
@@ -325,6 +332,9 @@ pub async fn handle_request(shared: &SharedState, addr: SocketAddr, mut req: Req
       poison_returned = ctx.poison_returned,
       fp_ja4 = ctx.fp.get("ja4"),
       fp_proxied = ctx.fp.get("proxied"),
+      fp_source = ctx.fp.get("source"),
+      fp_tls_status = ctx.fp.get("tls_status"),
+      fp_proxied_status = ctx.fp.get("proxied_status"),
       candidate_threshold = candidate.map(|threshold| threshold.value),
       candidate_action = candidate.map(|threshold| threshold.kind),
       candidate_status,

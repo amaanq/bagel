@@ -56,6 +56,10 @@ use crate::{
       TlsConfig,
    },
    error,
+   fingerprint::{
+      Capture,
+      CaptureError,
+   },
    hex_decode,
    hex_encode,
    metrics as bmetrics,
@@ -73,7 +77,7 @@ use crate::{
       self as bagel_tls,
       PeekStream,
       TlsFingerprint,
-      fingerprint::parse_client_hello,
+      fingerprint::ClientHello,
       validate_bind,
    },
 };
@@ -160,64 +164,30 @@ pub(super) enum Tls {
 
 /// Read until the whole `ClientHello` record is buffered, so it can be
 /// fingerprinted.
-async fn fill_client_hello(peek_stream: &mut PeekStream<BoxedStream>) {
-   const RECORD_HEADER: usize = 5;
-   const MAX_CLIENT_HELLO: usize = 64 * 1024;
-   const HANDSHAKE: u8 = 0x16;
-
-   let _ = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+async fn fill_client_hello(peek_stream: &mut PeekStream<BoxedStream>) -> Capture<Arc<ClientHello>> {
+   tokio::time::timeout(PREFACE_TIMEOUT, async {
       loop {
+         match ClientHello::try_from(peek_stream.peeked_data()) {
+            Ok(fields) => return Capture::Complete(Arc::new(fields)),
+            Err(CaptureError::Incomplete) => {},
+            Err(error) => return Capture::Failed(error),
+         }
          let have = peek_stream.peeked_data().len();
-         if have >= MAX_CLIENT_HELLO {
-            return;
-         }
-         if have < RECORD_HEADER {
-            if peek_stream
-               .peek_more(RECORD_HEADER - have)
-               .await
-               .unwrap_or(0)
-               == 0
-            {
-               return;
-            }
-            continue;
-         }
-         if peek_stream.peeked_data()[0] != HANDSHAKE {
-            return;
-         }
-         let mut record_end = 0;
-         while record_end + RECORD_HEADER <= have {
-            let data = peek_stream.peeked_data();
-            let length = usize::from(u16::from_be_bytes([
-               data[record_end + 3],
-               data[record_end + 4],
-            ]));
-            record_end += RECORD_HEADER + length;
-            if record_end > have {
-               break;
-            }
-         }
-         if record_end > have {
-            let want = record_end.min(MAX_CLIENT_HELLO);
-            if peek_stream.peek_more(want - have).await.unwrap_or(0) == 0 {
-               return;
-            }
-            continue;
-         }
-         if parse_client_hello(peek_stream.peeked_data()).is_some() {
-            return;
+         if have >= ClientHello::MAX_CAPTURE {
+            return Capture::Failed(CaptureError::Limited);
          }
          if peek_stream
-            .peek_more(RECORD_HEADER.min(MAX_CLIENT_HELLO - have))
+            .peek_more(4096.min(ClientHello::MAX_CAPTURE - have))
             .await
             .unwrap_or(0)
             == 0
          {
-            return;
+            return Capture::Failed(CaptureError::Incomplete);
          }
       }
    })
-   .await;
+   .await
+   .unwrap_or(Capture::Failed(CaptureError::Incomplete))
 }
 
 async fn serve_stream(
@@ -255,15 +225,9 @@ async fn serve_stream(
       return;
    }
    let fingerprint = if matches!(tls, Tls::None) {
-      None
+      TlsFingerprint::default()
    } else {
-      fill_client_hello(&mut peek_stream).await;
-      parse_client_hello(peek_stream.peeked_data()).map(|fields| {
-         TlsFingerprint {
-            ja4:     fields.compute_ja4(),
-            proxied: String::new(),
-         }
-      })
+      TlsFingerprint::from(fill_client_hello(&mut peek_stream).await)
    };
    match tls {
       Tls::None => {
@@ -432,7 +396,7 @@ async fn serve_one_connection(
    shared: SharedState,
    addr: SocketAddr,
    connection_peer: ConnectionPeer,
-   fingerprint: Option<TlsFingerprint>,
+   fingerprint: TlsFingerprint,
    drop_fd: Option<std::os::fd::RawFd>,
 ) {
    let drop_handle = DropHandle::new();
@@ -448,9 +412,7 @@ async fn serve_one_connection(
          req.extensions_mut().insert(addr);
          req.extensions_mut().insert(connection_peer);
          req.extensions_mut().insert(handle);
-         if let Some(fp) = fp {
-            req.extensions_mut().insert(fp);
-         }
+         req.extensions_mut().insert(fp);
          Ok::<_, Infallible>(dispatch(&shared, addr, req).await)
       }
    });

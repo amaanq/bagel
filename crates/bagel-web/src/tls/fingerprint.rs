@@ -1,342 +1,604 @@
+use std::{
+   collections::{
+      HashMap,
+      HashSet,
+   },
+   fmt::{
+      Display,
+      Formatter,
+      Result as FmtResult,
+   },
+   str::FromStr,
+   sync::Arc,
+};
+
+use ring::digest::{
+   SHA256,
+   digest,
+};
+
+use crate::{
+   fingerprint::{
+      Capture,
+      CaptureError,
+   },
+   hex_encode,
+   wire::Cursor,
+};
+
 /// TLS `ClientHello` fingerprint data.
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct TlsFingerprint {
-   pub ja4:     String,
+   native:  Capture<Arc<ClientHello>>,
    /// Digest of what a trusted TLS-terminating proxy relayed about the
    /// handshake, empty when none did.
-   pub proxied: String,
+   proxied: Capture<ProxiedFingerprint>,
 }
 
-/// Digest a `protocol;ciphers;curves;alpn` header relayed by the proxy.
+impl From<Capture<Arc<ClientHello>>> for TlsFingerprint {
+   fn from(native: Capture<Arc<ClientHello>>) -> Self {
+      Self {
+         native,
+         proxied: Capture::Unavailable,
+      }
+   }
+}
+
+impl TlsFingerprint {
+   #[must_use]
+   pub const fn native(&self) -> &Capture<Arc<ClientHello>> {
+      &self.native
+   }
+
+   pub fn set_proxied(&mut self, proxied: Capture<ProxiedFingerprint>) {
+      self.proxied = proxied;
+   }
+
+   #[must_use]
+   pub fn policy_fields(&self) -> HashMap<String, String> {
+      let native = !matches!(self.native, Capture::Unavailable);
+      let proxied = matches!(self.proxied, Capture::Complete(_));
+      let source = match (native, proxied) {
+         (true, true) => "native+proxy",
+         (true, false) => "native",
+         (false, true) => "proxy",
+         (false, false) => "none",
+      };
+      let mut fields = HashMap::from([
+         ("source".to_owned(), source.to_owned()),
+         ("tls_status".to_owned(), self.native.to_string()),
+         ("proxied_status".to_owned(), self.proxied.to_string()),
+      ]);
+      if let Capture::Complete(hello) = &self.native {
+         for (key, value) in [
+            ("ja4", hello.ja4.clone()),
+            ("tls_version", hello.tls_version.to_string()),
+            ("ciphers", hello.cipher_suites.to_string()),
+            ("extensions", hello.extensions.to_string()),
+            ("groups", hello.elliptic_curves.to_string()),
+            (
+               "signature_algorithms",
+               hello.signature_algorithms.to_string(),
+            ),
+            (
+               "alpn",
+               hello
+                  .alpn
+                  .iter()
+                  .map(|protocol| hex_encode(protocol))
+                  .collect::<Vec<_>>()
+                  .join(","),
+            ),
+         ] {
+            fields.insert(key.to_owned(), value);
+         }
+      }
+      if let Capture::Complete(relayed) = &self.proxied {
+         for (key, value) in [
+            ("proxied_version", relayed.version.to_string()),
+            ("proxied_ciphers", relayed.ciphers.to_string()),
+            ("proxied_curves", relayed.curves.to_string()),
+            ("proxied_alpn", relayed.alpn.clone()),
+            ("proxied_resumed", relayed.resumed.to_string()),
+         ] {
+            fields.insert(key.to_owned(), value);
+         }
+         if let Some(value) = relayed.digest() {
+            fields.insert("proxied".to_owned(), value);
+         } else {
+            fields.insert("proxied_status".to_owned(), "partial".to_owned());
+         }
+      }
+      fields
+   }
+}
+
+#[derive(Clone, Debug)]
+pub struct ProxiedFingerprint {
+   version: TlsVersion,
+   ciphers: ProxiedList,
+   curves:  ProxiedList,
+   alpn:    String,
+   resumed: bool,
+}
+
+impl ProxiedFingerprint {
+   fn digest(&self) -> Option<String> {
+      if self.curves.0.is_empty() {
+         return None;
+      }
+      Some(format!(
+         "p{}{:02}{:02}{}_{}_{}",
+         self.version,
+         self.ciphers.0.len().min(99),
+         self.curves.0.len().min(99),
+         alpn_tag(self.alpn.as_bytes()),
+         truncated_hash(&self.ciphers.to_string()),
+         truncated_hash(&self.curves.to_string()),
+      ))
+   }
+}
+
+/// Digest a `protocol;ciphers;curves;alpn;reused` header relayed by the proxy.
 ///
 /// The value is what nginx renders from `$ssl_protocol`, `$ssl_ciphers`,
-/// `$ssl_curves` and `$ssl_alpn_protocol`. GREASE entries are dropped
-/// because Chrome randomizes them per handshake.
-#[must_use]
-pub fn proxied_fingerprint(value: &str) -> Option<String> {
-   let mut parts = value.split(';');
-   let protocol = parts.next()?.trim();
-   let ciphers = normalize_list(parts.next()?);
-   let curves = normalize_list(parts.next()?);
-   let alpn = parts.next().map(str::trim).unwrap_or_default();
-   if protocol.is_empty() || ciphers.is_empty() {
-      return None;
+/// `$ssl_curves`, `$ssl_alpn_protocol` and `$ssl_session_reused`. GREASE
+/// entries are dropped because Chrome randomizes them per handshake.
+impl FromStr for ProxiedFingerprint {
+   type Err = CaptureError;
+
+   fn from_str(value: &str) -> Result<Self, Self::Err> {
+      if value.len() > 8192 {
+         return Err(CaptureError::Limited);
+      }
+      let mut parts = value.split(';');
+      let protocol = parts.next().ok_or(CaptureError::Invalid)?.trim();
+      let ciphers: ProxiedList = parts.next().ok_or(CaptureError::Invalid)?.parse()?;
+      let curves = parts.next().ok_or(CaptureError::Invalid)?.parse()?;
+      let alpn = parts.next().ok_or(CaptureError::Invalid)?.trim();
+      let resumed = match parts.next().map(str::trim) {
+         Some("r") => true,
+         Some(".") => false,
+         _ => return Err(CaptureError::Invalid),
+      };
+      if parts.next().is_some()
+         || ciphers.0.is_empty()
+         || alpn.len() > 255
+         || !alpn.bytes().all(|byte| byte.is_ascii_graphic())
+      {
+         return Err(CaptureError::Invalid);
+      }
+      let version = match protocol {
+         "TLSv1.3" => TlsVersion::Tls13,
+         "TLSv1.2" => TlsVersion::Tls12,
+         "TLSv1.1" => TlsVersion::Tls11,
+         "TLSv1" => TlsVersion::Tls10,
+         _ => return Err(CaptureError::Invalid),
+      };
+      Ok(Self {
+         version,
+         ciphers,
+         curves,
+         alpn: alpn.to_owned(),
+         resumed,
+      })
    }
-   let version = match protocol {
-      "TLSv1.3" => "13",
-      "TLSv1.2" => "12",
-      "TLSv1.1" => "11",
-      "TLSv1" => "10",
-      _ => "00",
-   };
-   let alpn_tag = match alpn {
-      "" => "00".to_owned(),
-      tag if tag.len() >= 2 => tag[..2].to_owned(),
-      tag => format!("{tag:0<2}"),
-   };
-   let cipher_hash = &hex_encode(
-      ring::digest::digest(&ring::digest::SHA256, ciphers.join(":").as_bytes()).as_ref(),
-   )[..12];
-   let curve_hash = &hex_encode(
-      ring::digest::digest(&ring::digest::SHA256, curves.join(":").as_bytes()).as_ref(),
-   )[..12];
-   Some(format!(
-      "p{version}{:02}{:02}{alpn_tag}_{cipher_hash}_{curve_hash}",
-      ciphers.len().min(99),
-      curves.len().min(99)
-   ))
 }
 
-fn normalize_list(list: &str) -> Vec<&str> {
-   let mut items: Vec<&str> = list
-      .split(':')
-      .map(str::trim)
-      .filter(|item| !item.is_empty() && !is_grease_name(item))
-      .collect();
-   items.sort_unstable();
-   items
+#[derive(Clone, Debug)]
+struct ProxiedList(Vec<String>);
+
+impl FromStr for ProxiedList {
+   type Err = CaptureError;
+
+   fn from_str(list: &str) -> Result<Self, Self::Err> {
+      let mut items = Vec::new();
+      if list.trim().is_empty() {
+         return Ok(Self(items));
+      }
+      for item in list.split(':').map(str::trim) {
+         if item.is_empty()
+            || item.len() > 128
+            || !item
+               .bytes()
+               .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+         {
+            return Err(CaptureError::Invalid);
+         }
+         if let Some(hex) = item.strip_prefix("0x").or_else(|| item.strip_prefix("0X")) {
+            let value = u16::from_str_radix(hex, 16).map_err(|_| CaptureError::Invalid)?;
+            if !is_grease(value) {
+               items.push(format!("0x{value:04x}"));
+            }
+         } else {
+            items.push(item.to_owned());
+         }
+         if items.len() > 256 {
+            return Err(CaptureError::Limited);
+         }
+      }
+      if items.iter().map(|item| item.len() + 1).sum::<usize>() > 4096 {
+         return Err(CaptureError::Limited);
+      }
+      Ok(Self(items))
+   }
 }
 
-fn is_grease_name(item: &str) -> bool {
-   let Some(hex) = item.strip_prefix("0x").or_else(|| item.strip_prefix("0X")) else {
-      return false;
-   };
-   u16::from_str_radix(hex, 16).is_ok_and(is_grease)
+impl Display for ProxiedList {
+   #[expect(
+      clippy::renamed_function_params,
+      reason = "formatter keeps the argument name descriptive"
+   )]
+   fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
+      formatter.write_str(&self.0.join(":"))
+   }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum TlsVersion {
+   Ssl2,
+   Ssl3,
+   Tls10,
+   Tls11,
+   Tls12,
+   Tls13,
+   Unknown,
+}
+
+impl From<u16> for TlsVersion {
+   fn from(version: u16) -> Self {
+      match version {
+         0x0304 => Self::Tls13,
+         0x0303 => Self::Tls12,
+         0x0302 => Self::Tls11,
+         0x0301 => Self::Tls10,
+         0x0300 => Self::Ssl3,
+         0x0002 => Self::Ssl2,
+         _ => Self::Unknown,
+      }
+   }
+}
+
+impl Display for TlsVersion {
+   #[expect(
+      clippy::renamed_function_params,
+      reason = "formatter keeps the argument name descriptive"
+   )]
+   fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
+      formatter.write_str(match self {
+         Self::Tls13 => "13",
+         Self::Tls12 => "12",
+         Self::Tls11 => "11",
+         Self::Tls10 => "10",
+         Self::Ssl3 => "s3",
+         Self::Ssl2 => "s2",
+         Self::Unknown => "00",
+      })
+   }
+}
+
+#[derive(Clone, Debug, Default)]
+struct Identifiers(Vec<u16>);
+
+impl TryFrom<&[u8]> for Identifiers {
+   type Error = CaptureError;
+
+   fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
+      let (pairs, tail) = data.as_chunks::<2>();
+      if !tail.is_empty() {
+         return Err(CaptureError::Invalid);
+      }
+      if data.len() > 1024 {
+         return Err(CaptureError::Limited);
+      }
+      Ok(Self(
+         pairs
+            .iter()
+            .copied()
+            .map(u16::from_be_bytes)
+            .filter(|value| !is_grease(*value))
+            .collect(),
+      ))
+   }
+}
+
+impl Display for Identifiers {
+   #[expect(
+      clippy::renamed_function_params,
+      reason = "formatter keeps the argument name descriptive"
+   )]
+   fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
+      for (index, value) in self.0.iter().enumerate() {
+         if index != 0 {
+            formatter.write_str(",")?;
+         }
+         write!(formatter, "{value:04x}")?;
+      }
+      Ok(())
+   }
+}
+
+#[derive(Clone, Copy)]
+enum ExtensionKind {
+   ServerName,
+   SupportedGroups,
+   PointFormats,
+   SignatureAlgorithms,
+   Alpn,
+   SupportedVersions,
+   Unknown,
+}
+
+impl From<u16> for ExtensionKind {
+   fn from(kind: u16) -> Self {
+      match kind {
+         0x0000 => Self::ServerName,
+         0x000A => Self::SupportedGroups,
+         0x000B => Self::PointFormats,
+         0x000D => Self::SignatureAlgorithms,
+         0x0010 => Self::Alpn,
+         0x002B => Self::SupportedVersions,
+         _ => Self::Unknown,
+      }
+   }
 }
 
 /// Parsed fields from a TLS `ClientHello` needed for fingerprinting.
-#[derive(Default)]
-pub struct ClientHelloFields {
-   pub tls_version:      u16,
-   pub cipher_suites:    Vec<u16>,
-   pub extensions:       Vec<u16>,
-   pub elliptic_curves:  Vec<u16>,
-   pub ec_point_formats: Vec<u8>,
-   pub sni:              String,
-   pub alpn:             Vec<String>,
+#[derive(Clone, Debug)]
+pub struct ClientHello {
+   ja4:                  String,
+   tls_version:          TlsVersion,
+   cipher_suites:        Identifiers,
+   extensions:           Identifiers,
+   elliptic_curves:      Identifiers,
+   ec_point_formats:     Vec<u8>,
+   sni:                  String,
+   alpn:                 Vec<Vec<u8>>,
+   signature_algorithms: Identifiers,
 }
 
-impl ClientHelloFields {
+impl ClientHello {
+   pub const MAX_CAPTURE: usize = 64 * 1024;
+
+   #[must_use]
+   pub fn ja4(&self) -> &str {
+      &self.ja4
+   }
+
    /// Compute JA4 fingerprint.
    /// Format: `{t|q}{version}{sni}{cipher_count}{ext_count}{alpn}_{cipher_hash}_{ext_hash}`.
-   #[must_use]
-   pub fn compute_ja4(&self) -> String {
-      let proto = if self.tls_version >= 0x0304 { "t" } else { "q" };
-
-      let ver = match self.tls_version {
-         0x0303 => "12",
-         0x0304 => "13",
-         _ => "00",
+   fn compute_ja4(&self) -> String {
+      let proto = "t";
+      let ver = self.tls_version;
+      let sni_flag = if self.extensions.0.contains(&0) {
+         "d"
+      } else {
+         "i"
       };
+      let cipher_count = format!("{:02}", self.cipher_suites.0.len().min(99));
+      let ext_count = format!("{:02}", self.extensions.0.len().min(99));
+      let alpn = alpn_tag(self.alpn.first().map_or(&[], Vec::as_slice));
 
-      let sni_flag = if self.sni.is_empty() { "i" } else { "d" };
-
-      let cipher_count = format!("{:02}", self.cipher_suites.len().min(99));
-      let ext_count = format!("{:02}", self.extensions.len().min(99));
-
-      let alpn = self.alpn.first().map_or_else(
-         || "00".to_owned(),
-         |proto| {
-            if proto.len() >= 2 {
-               proto[..2].to_string()
-            } else {
-               format!("{proto:0<2}")
-            }
-         },
-      );
-
-      // Cipher hash: first 6 hex chars of SHA-256 of sorted cipher suites
+      // Cipher hash uses six SHA-256 bytes of the sorted cipher suites
       let mut sorted_ciphers = self.cipher_suites.clone();
-      sorted_ciphers.sort_unstable();
-      let cipher_str = join_u16(&sorted_ciphers);
-      let cipher_hash =
-         &hex_encode(ring::digest::digest(&ring::digest::SHA256, cipher_str.as_bytes()).as_ref())
-            [..12];
+      sorted_ciphers.0.sort_unstable();
+      let cipher_hash = truncated_hash(&sorted_ciphers.to_string());
 
-      // Extension hash: first 6 hex chars of SHA-256 of sorted extensions
-      let mut sorted_exts = self.extensions.clone();
-      sorted_exts.sort_unstable();
-      let ext_str = join_u16(&sorted_exts);
-      let ext_hash =
-         &hex_encode(ring::digest::digest(&ring::digest::SHA256, ext_str.as_bytes()).as_ref())
-            [..12];
-
+      // JA4 excludes SNI and ALPN, then appends ordered signatures
+      let mut sorted_exts = Identifiers(
+         self
+            .extensions
+            .0
+            .iter()
+            .copied()
+            .filter(|extension| !matches!(extension, 0 | 16))
+            .collect(),
+      );
+      sorted_exts.0.sort_unstable();
+      let mut ext_str = sorted_exts.to_string();
+      if !ext_str.is_empty() && !self.signature_algorithms.0.is_empty() {
+         ext_str.push('_');
+         ext_str.push_str(&self.signature_algorithms.to_string());
+      }
+      let ext_hash = truncated_hash(&ext_str);
       format!("{proto}{ver}{sni_flag}{cipher_count}{ext_count}{alpn}_{cipher_hash}_{ext_hash}")
    }
+
+   fn decode(body: &[u8]) -> Result<Self, CaptureError> {
+      let mut input = Cursor::from(body);
+      // Client version (2 bytes)
+      let tls_version = TlsVersion::from(input.u16()?);
+      // Random (32 bytes)
+      input.take(32)?;
+      // Session ID
+      if input.vector_u8()?.len() > 32 {
+         return Err(CaptureError::Invalid);
+      }
+      // Cipher suites
+      let cipher_bytes = input.vector_u16()?;
+      if cipher_bytes.is_empty() {
+         return Err(CaptureError::Invalid);
+      }
+      let cipher_suites = Identifiers::try_from(cipher_bytes)?;
+      // Compression methods
+      if input.vector_u8()?.is_empty() {
+         return Err(CaptureError::Invalid);
+      }
+
+      let mut hello = Self {
+         ja4: String::new(),
+         tls_version,
+         cipher_suites,
+         extensions: Identifiers::default(),
+         elliptic_curves: Identifiers::default(),
+         ec_point_formats: Vec::new(),
+         sni: String::new(),
+         alpn: Vec::new(),
+         signature_algorithms: Identifiers::default(),
+      };
+
+      // Extensions
+      if !input.is_empty() {
+         let mut extensions = Cursor::from(input.vector_u16()?);
+         input.finish()?;
+         let mut seen = HashSet::new();
+         while !extensions.is_empty() {
+            let kind = extensions.u16()?;
+            let data = extensions.vector_u16()?;
+            if !seen.insert(kind) {
+               return Err(CaptureError::Invalid);
+            }
+            if seen.len() > 512 {
+               return Err(CaptureError::Limited);
+            }
+            if !is_grease(kind) {
+               hello.extensions.0.push(kind);
+            }
+            hello.extension(ExtensionKind::from(kind), data)?;
+         }
+      }
+      hello.ja4 = hello.compute_ja4();
+      Ok(hello)
+   }
+
+   fn extension(&mut self, kind: ExtensionKind, data: &[u8]) -> Result<(), CaptureError> {
+      let mut input = Cursor::from(data);
+      let payload = match kind {
+         ExtensionKind::ServerName
+         | ExtensionKind::SupportedGroups
+         | ExtensionKind::SignatureAlgorithms
+         | ExtensionKind::Alpn => input.vector_u16()?,
+         ExtensionKind::PointFormats | ExtensionKind::SupportedVersions => input.vector_u8()?,
+         ExtensionKind::Unknown => return Ok(()),
+      };
+      input.finish()?;
+      if payload.is_empty() {
+         return Err(CaptureError::Invalid);
+      }
+
+      match kind {
+         // SNI
+         ExtensionKind::ServerName => {
+            let mut names = Cursor::from(payload);
+            let mut name_types = HashSet::new();
+            while !names.is_empty() {
+               let name_type = names.byte()?;
+               let name = names.vector_u16()?;
+               if name.is_empty() || !name_types.insert(name_type) {
+                  return Err(CaptureError::Invalid);
+               }
+               if name_type == 0 {
+                  std::str::from_utf8(name)
+                     .map_err(|_| CaptureError::Invalid)?
+                     .clone_into(&mut self.sni);
+               }
+            }
+         },
+         // Supported groups (elliptic curves)
+         ExtensionKind::SupportedGroups => self.elliptic_curves = Identifiers::try_from(payload)?,
+         // EC point formats
+         ExtensionKind::PointFormats => self.ec_point_formats = payload.to_vec(),
+         ExtensionKind::SignatureAlgorithms => {
+            self.signature_algorithms = Identifiers::try_from(payload)?;
+         },
+         // ALPN
+         ExtensionKind::Alpn => {
+            if data.len() > 2048 {
+               return Err(CaptureError::Limited);
+            }
+            let mut protocols = Cursor::from(payload);
+            while !protocols.is_empty() {
+               let protocol = protocols.vector_u8()?;
+               if protocol.is_empty() {
+                  return Err(CaptureError::Invalid);
+               }
+               let grease = protocol
+                  .first_chunk::<2>()
+                  .filter(|_| protocol.len() == 2)
+                  .is_some_and(|bytes| is_grease(u16::from_be_bytes(*bytes)));
+               if !grease {
+                  self.alpn.push(protocol.to_vec());
+               }
+            }
+         },
+         // Supported versions
+         ExtensionKind::SupportedVersions => {
+            // Use the highest supported version for the actual TLS version
+            let versions = Identifiers::try_from(payload)?;
+            self.tls_version =
+               TlsVersion::from(versions.0.into_iter().max().ok_or(CaptureError::Invalid)?);
+         },
+         ExtensionKind::Unknown => {},
+      }
+      Ok(())
+   }
 }
-
-fn join_u16(items: &[u16]) -> String {
-   items
-      .iter()
-      .map(ToString::to_string)
-      .collect::<Vec<_>>()
-      .join("-")
-}
-
-use std::string::ToString;
-
-use crate::hex_encode;
 
 /// Parses whatever the peer sent first, so every length is checked against
 /// the buffer before it is trusted.
-#[allow(clippy::missing_asserts_for_indexing)]
-#[must_use]
-pub fn parse_client_hello(data: &[u8]) -> Option<ClientHelloFields> {
-   // Minimum TLS record: 5 byte header + 4 byte handshake header + ...
-   if data.len() < 11 {
-      return None;
-   }
+impl TryFrom<&[u8]> for ClientHello {
+   type Error = CaptureError;
 
-   let mut hs = Vec::new();
-   let mut record_pos = 0;
-   while record_pos + 5 <= data.len() {
-      if data[record_pos] != 0x16 {
-         return None;
+   fn try_from(data: &[u8]) -> Result<Self, Self::Error> {
+      // Minimum TLS record: 5 byte header + 4 byte handshake header + ...
+      if data.len() < 11 {
+         return Err(CaptureError::Incomplete);
       }
-      let record_length = u16::from_be_bytes([data[record_pos + 3], data[record_pos + 4]]) as usize;
-      let record_end = record_pos + 5 + record_length;
-      if data.len() < record_end {
-         return None;
-      }
-      hs.extend_from_slice(&data[record_pos + 5..record_end]);
-      record_pos = record_end;
-      if hs.len() >= 4 {
-         let hs_length = u24_be(&hs[1..4]) as usize;
-         if hs.len() >= 4 + hs_length {
-            break;
+      let mut records = Cursor::from(data);
+      let mut handshake = Vec::new();
+      while records.remaining().len() >= 5 {
+         if records.byte()? != 0x16 {
+            return Err(CaptureError::Invalid);
+         }
+         records.take(2)?;
+         let length = usize::from(records.u16()?);
+         if !(1..=16384).contains(&length) {
+            return Err(CaptureError::Invalid);
+         }
+         let consumed = data.len() - records.remaining().len();
+         if consumed + length > Self::MAX_CAPTURE {
+            return Err(CaptureError::Limited);
+         }
+         handshake.extend_from_slice(records.take(length).map_err(|_| CaptureError::Incomplete)?);
+         if handshake.len() < 4 {
+            continue;
+         }
+         let mut message = Cursor::from(handshake.as_slice());
+         // Handshake type: ClientHello = 1
+         if message.byte()? != 1 {
+            return Err(CaptureError::Invalid);
+         }
+         let body_length = message.u24()?;
+         if body_length + 4 > Self::MAX_CAPTURE {
+            return Err(CaptureError::Limited);
+         }
+         if message.remaining().len() >= body_length {
+            return Self::decode(message.take(body_length)?);
          }
       }
+      Err(CaptureError::Incomplete)
    }
+}
 
-   // Handshake type: ClientHello = 1
-   if hs.is_empty() || hs[0] != 1 {
-      return None;
-   }
-
-   if hs.len() < 4 {
-      return None;
-   }
-   let hs_length = u24_be(&hs[1..4]) as usize;
-   if hs.len() < 4 + hs_length {
-      return None;
-   }
-
-   let ch = &hs[4..4 + hs_length];
-   let mut pos = 0;
-
-   // Client version (2 bytes)
-   if ch.len() < pos + 2 {
-      return None;
-   }
-   let client_version = u16::from_be_bytes([ch[pos], ch[pos + 1]]);
-   pos += 2;
-
-   // Random (32 bytes)
-   pos += 32;
-   if ch.len() < pos {
-      return None;
-   }
-
-   // Session ID
-   if ch.len() < pos + 1 {
-      return None;
-   }
-   let session_id_len = ch[pos] as usize;
-   pos += 1 + session_id_len;
-
-   // Cipher suites
-   if ch.len() < pos + 2 {
-      return None;
-   }
-   let cs_len = u16::from_be_bytes([ch[pos], ch[pos + 1]]) as usize;
-   pos += 2;
-   if ch.len() < pos + cs_len {
-      return None;
-   }
-   let mut cipher_suites = Vec::new();
-   let cs_end = pos + cs_len;
-   while pos + 1 < cs_end {
-      let cs = u16::from_be_bytes([ch[pos], ch[pos + 1]]);
-      if !is_grease(cs) {
-         cipher_suites.push(cs);
-      }
-      pos += 2;
-   }
-   pos = cs_end;
-
-   // Compression methods
-   if ch.len() < pos + 1 {
-      return None;
-   }
-   let compression_len = ch[pos] as usize;
-   pos += 1 + compression_len;
-
-   let mut fields = ClientHelloFields {
-      tls_version: client_version,
-      cipher_suites,
-      ..Default::default()
+fn alpn_tag(protocol: &[u8]) -> String {
+   let Some((&first, &last)) = protocol.first().zip(protocol.last()) else {
+      return "00".to_owned();
    };
-
-   // Extensions
-   if ch.len() >= pos + 2 {
-      let ext_len = u16::from_be_bytes([ch[pos], ch[pos + 1]]) as usize;
-      pos += 2;
-      let ext_end = (pos + ext_len).min(ch.len());
-
-      while pos + 3 < ext_end {
-         let ext_type = u16::from_be_bytes([ch[pos], ch[pos + 1]]);
-         let ext_data_len = u16::from_be_bytes([ch[pos + 2], ch[pos + 3]]) as usize;
-         pos += 4;
-
-         if pos + ext_data_len > ext_end {
-            break;
-         }
-
-         let ext_data = &ch[pos..pos + ext_data_len];
-
-         if !is_grease(ext_type) {
-            fields.extensions.push(ext_type);
-         }
-
-         match ext_type {
-            // SNI
-            0x0000
-               if ext_data.len() >= 5 && ext_data[2] == 0 => {
-                  let name_len = u16::from_be_bytes([ext_data[3], ext_data[4]]) as usize;
-                  if ext_data.len() >= 5 + name_len {
-                     fields.sni = String::from_utf8_lossy(&ext_data[5..5 + name_len]).to_string();
-                  }
-               },
-            // Supported groups (elliptic curves)
-            0x000A
-               if ext_data.len() >= 2 => {
-                  let list_len = u16::from_be_bytes([ext_data[0], ext_data[1]]) as usize;
-                  let mut i = 2;
-                  while i + 1 < 2 + list_len && i + 1 < ext_data.len() {
-                     let group = u16::from_be_bytes([ext_data[i], ext_data[i + 1]]);
-                     if !is_grease(group) {
-                        fields.elliptic_curves.push(group);
-                     }
-                     i += 2;
-                  }
-               },
-            // EC point formats
-            0x000B
-               if !ext_data.is_empty() => {
-                  let fmt_len = ext_data[0] as usize;
-                  for &fmt in ext_data.get(1..1 + fmt_len).unwrap_or(&[]) {
-                     fields.ec_point_formats.push(fmt);
-                  }
-               },
-            // ALPN
-            0x0010
-               if ext_data.len() >= 2 => {
-                  let mut i = 2;
-                  while i < ext_data.len() {
-                     let proto_len = ext_data[i] as usize;
-                     i += 1;
-                     if i + proto_len <= ext_data.len() {
-                        fields
-                           .alpn
-                           .push(String::from_utf8_lossy(&ext_data[i..i + proto_len]).to_string());
-                     }
-                     i += proto_len;
-                  }
-               },
-            // Supported versions
-            0x002B
-               // Use the highest supported version for the actual TLS version
-               if ext_data.len() >= 3 => {
-                  let list_len = ext_data[0] as usize;
-                  let mut max_ver = 0_u16;
-                  let mut i = 1;
-                  while i + 1 < 1 + list_len && i + 1 < ext_data.len() {
-                     let ver = u16::from_be_bytes([ext_data[i], ext_data[i + 1]]);
-                     if !is_grease(ver) && ver > max_ver {
-                        max_ver = ver;
-                     }
-                     i += 2;
-                  }
-                  if max_ver > 0 {
-                     fields.tls_version = max_ver;
-                  }
-               },
-            _ => {},
-         }
-
-         pos += ext_data_len;
-      }
+   if first.is_ascii_alphanumeric() && last.is_ascii_alphanumeric() {
+      format!("{}{}", char::from(first), char::from(last))
+   } else {
+      format!("{:x}{:x}", first >> 4, last & 0x0F)
    }
-
-   Some(fields)
 }
 
-#[allow(clippy::missing_asserts_for_indexing)]
-fn u24_be(buf: &[u8]) -> u32 {
-   (u32::from(buf[0]) << 16) | (u32::from(buf[1]) << 8) | u32::from(buf[2])
+fn truncated_hash(value: &str) -> String {
+   if value.is_empty() {
+      return "000000000000".to_owned();
+   }
+   hex_encode(&digest(&SHA256, value.as_bytes()).as_ref()[..6])
 }
 
-const fn is_grease(val: u16) -> bool {
+const fn is_grease(value: u16) -> bool {
    // GREASE values: 0x0a0a, 0x1a1a, 0x2a2a, ..., 0xfafa
-   val & 0x0F0F == 0x0A0A
+   value & 0x0F0F == 0x0A0A && value >> 8 == value & 0xFF
 }
