@@ -4,13 +4,22 @@ pub mod radb;
 pub mod rate;
 
 use std::{
-   net::IpAddr,
+   net::{
+      IpAddr,
+      SocketAddr,
+   },
    sync::Arc,
 };
 
 use ip_network::IpNetwork;
 use ip_network_table::IpNetworkTable;
 use tokio::sync::Notify;
+
+#[derive(Clone, Copy)]
+pub(crate) struct ConnectionPeer {
+   pub transport: Option<SocketAddr>,
+   pub forwarded: Option<SocketAddr>,
+}
 
 /// Connection-scoped drop signal used to cancel transport without writing a
 /// response.

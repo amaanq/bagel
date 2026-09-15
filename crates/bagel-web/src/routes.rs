@@ -172,7 +172,7 @@ fn safe_redirect(raw: &str) -> Option<String> {
 /// configured client-ip policy (header plus trusted proxies).
 fn client_ip_for(state: &StateInner, req: &Request) -> Option<IpAddr> {
    let peer = req.extensions().get::<SocketAddr>().map(SocketAddr::ip)?;
-   Some(state.client_ip(peer, req.headers()))
+   Some(state.client_ip(peer, req))
 }
 
 fn canonical_request_host(req: &Request) -> Option<CanonicalHost> {

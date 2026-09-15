@@ -183,6 +183,7 @@ pub async fn proxy_request(
       req.headers_mut().insert("x-bagel-id", val);
    }
 
+   req.headers_mut().remove("x-bagel-ja4");
    if let Some(fp) = req.extensions().get::<TlsFingerprint>()
       && !fp.ja4.is_empty()
       && let Ok(val) = HeaderValue::from_str(&fp.ja4)

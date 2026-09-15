@@ -117,8 +117,11 @@ string with GREASE removed so Chrome hashes stably. It's a coarser signal than
 JA4 because nginx exposes no extension list, but it still separates HTTP
 libraries from browsers, and the value is logged on every decision line as
 `fp_proxied` so a browser allowlist can be read off real traffic. Like
-`client-ip-header`, it requires `trusted-proxies`. It only works when the
-proxy terminates the client's own TLS session. Behind a CDN such as
+`client-ip-header`, it requires `trusted-proxies`. The original transport
+peer gates the TLS header even when PROXY rewrites the client source, and
+PROXY source takes precedence over the client IP header for that source. Unix
+connections without a transport address use the localhost trust policy. It only
+works when the proxy terminates the client's own TLS session. Behind a CDN such as
 Cloudflare the header describes the CDN's origin-pull client and every
 request hashes to the same value, so leave it unset there.
 

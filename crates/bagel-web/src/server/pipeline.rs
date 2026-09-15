@@ -1,6 +1,7 @@
 use std::{
    net::{
       IpAddr,
+      Ipv4Addr,
       SocketAddr,
    },
    pin::Pin,
@@ -45,7 +46,10 @@ use crate::{
    },
    host::CanonicalHost,
    metrics as bmetrics,
-   net::DropHandle,
+   net::{
+      ConnectionPeer,
+      DropHandle,
+   },
    proxy,
    rule::{
       PassMarker,
@@ -95,13 +99,21 @@ pub async fn handle_request(shared: &SharedState, addr: SocketAddr, mut req: Req
    };
    let host = canonical.as_str().to_owned();
 
-   let client_ip = Some(state.client_ip(addr.ip(), req.headers()));
+   let client_ip = Some(state.client_ip(addr.ip(), &req));
    if let Some(ip) = client_ip {
       req.extensions_mut()
          .insert(SocketAddr::new(ip, addr.port()));
    }
+   let transport_ip = req.extensions().get::<ConnectionPeer>().map_or_else(
+      || addr.ip(),
+      |peer| {
+         peer
+            .transport
+            .map_or(IpAddr::V4(Ipv4Addr::LOCALHOST), |address| address.ip())
+      },
+   );
    if let Some(name) = state.config.client_tls_header.as_deref()
-      && state.policy.client_ip.trusts(addr.ip())
+      && state.policy.client_ip.trusts(transport_ip)
       && let Some(proxied) = req
          .headers()
          .get(name)

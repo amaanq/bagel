@@ -27,7 +27,10 @@ use tokio::sync::Semaphore;
 
 use crate::{
    SourceNetwork,
-   body::Body,
+   body::{
+      Body,
+      Request,
+   },
    cache::FileCache,
    challenge::ChallengeRegistry,
    config::{
@@ -45,6 +48,7 @@ use crate::{
       renderer::ExternalRenderer,
    },
    net::{
+      ConnectionPeer,
       IpNetTrie,
       decay_map::DecayMap,
       loader::load_networks,
@@ -375,11 +379,17 @@ fn build_maze_tables(
 impl StateInner {
    /// Resolve the client IP from the peer and configured forwarding header.
    #[must_use]
-   pub fn client_ip(&self, peer: std::net::IpAddr, headers: &http::HeaderMap) -> std::net::IpAddr {
+   pub fn client_ip(&self, peer: std::net::IpAddr, request: &Request) -> std::net::IpAddr {
+      if let Some(connection) = request.extensions().get::<ConnectionPeer>()
+         && let Some(source) = connection.forwarded
+      {
+         return source.ip();
+      }
       let Some(name) = self.policy.client_ip.header_name() else {
          return self.policy.client_ip.resolve(peer, None);
       };
-      let joined = headers
+      let joined = request
+         .headers()
          .get_all(name)
          .iter()
          .filter_map(|value| value.to_str().ok())

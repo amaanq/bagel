@@ -59,7 +59,10 @@ use crate::{
    hex_decode,
    hex_encode,
    metrics as bmetrics,
-   net::DropHandle,
+   net::{
+      ConnectionPeer,
+      DropHandle,
+   },
    routes::dispatch,
    state::{
       self,
@@ -226,6 +229,10 @@ async fn serve_stream(
    _connection_slot: OwnedSemaphorePermit,
 ) {
    let mut addr = peer.unwrap_or(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0));
+   let mut connection_peer = ConnectionPeer {
+      transport: peer,
+      forwarded: None,
+   };
    let proxy_allowed = peer.map_or_else(
       || shared.load().config.bind.proxy_protocol,
       |peer_addr| trusts_proxy_peer(&shared, peer_addr.ip()),
@@ -238,6 +245,7 @@ async fn serve_stream(
          && let Some(proxy_addr) = take_proxy_header(&mut peek_stream).await
       {
          addr = proxy_addr;
+         connection_peer.forwarded = Some(proxy_addr);
       }
    })
    .await
@@ -259,7 +267,15 @@ async fn serve_stream(
    };
    match tls {
       Tls::None => {
-         serve_one_connection(Box::new(peek_stream), shared, addr, fingerprint, drop_fd).await;
+         serve_one_connection(
+            Box::new(peek_stream),
+            shared,
+            addr,
+            connection_peer,
+            fingerprint,
+            drop_fd,
+         )
+         .await;
       },
       Tls::Manual(acceptor) => {
          let tls_stream =
@@ -274,7 +290,15 @@ async fn serve_stream(
                   return;
                },
             };
-         serve_one_connection(Box::new(tls_stream), shared, addr, fingerprint, drop_fd).await;
+         serve_one_connection(
+            Box::new(tls_stream),
+            shared,
+            addr,
+            connection_peer,
+            fingerprint,
+            drop_fd,
+         )
+         .await;
       },
       #[cfg(feature = "acme")]
       Tls::Acme(handles) => {
@@ -318,7 +342,15 @@ async fn serve_stream(
          .await
          {
             Ok(Ok(tls)) => {
-               serve_one_connection(Box::new(tls), shared, addr, fingerprint, drop_fd).await;
+               serve_one_connection(
+                  Box::new(tls),
+                  shared,
+                  addr,
+                  connection_peer,
+                  fingerprint,
+                  drop_fd,
+               )
+               .await;
             },
             Ok(Err(err)) => {
                tracing::debug!(error = %err, peer = %addr, "TLS handshake failed");
@@ -399,6 +431,7 @@ async fn serve_one_connection(
    stream: BoxedStream,
    shared: SharedState,
    addr: SocketAddr,
+   connection_peer: ConnectionPeer,
    fingerprint: Option<TlsFingerprint>,
    drop_fd: Option<std::os::fd::RawFd>,
 ) {
@@ -413,6 +446,7 @@ async fn serve_one_connection(
          let (parts, body) = req.into_parts();
          let mut req = Request::from_parts(parts, Body::with_idle_timeout(body));
          req.extensions_mut().insert(addr);
+         req.extensions_mut().insert(connection_peer);
          req.extensions_mut().insert(handle);
          if let Some(fp) = fp {
             req.extensions_mut().insert(fp);
