@@ -205,7 +205,7 @@ impl ChallengeRegistry {
                let (kind, default_difficulty) = if runtime == "pow-sha256" {
                   (Kind::Sha256, 16)
                } else {
-                  (Kind::Scratch, 12)
+                  (Kind::Scratch, 10)
                };
                let difficulty =
                   cfg.parameters

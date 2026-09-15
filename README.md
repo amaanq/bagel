@@ -121,7 +121,7 @@ nix develop --command cargo test -p bagel-web solver::
 ```
 
 Two proofs are available. `runtime="pow-sha256"` hashes once per attempt and
-`difficulty` defaults to 14. `runtime="pow-scratch"` seeds a scratchpad of
+`difficulty` defaults to 16. `runtime="pow-scratch"` seeds a scratchpad of
 `memory` KiB, a power of two from 64 to 1024 defaulting to 256, walks it in a
 data-dependent order and defaults `difficulty` to 10. Every attempt touches the
 whole pad, so a batch solver gains little over a browser.
